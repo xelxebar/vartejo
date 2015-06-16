@@ -97,7 +97,28 @@ function echo_status () {
   return 0
 }
 
+function echo_usage () {
+  cat << _USAGE_
+Usage: ${0} [ on | off | status ]
+
+    on
+    off     Enable and disable the mouse, respectively.
+
+    status  Print the current enabled or disable status of the mouse.
+
+    help    Print this help.
+_USAGE_
+}
+
+function check_deps () {
+  if [[ ! -x $(which synclient 2>/dev/null) ]]; then
+    exit
+  fi
+}
+
 function main () {
+  
+  check_deps
 
   if [ $# -eq 0 ]; then
     synclient_toggle
@@ -107,6 +128,8 @@ function main () {
     synclient_disable
   elif [ $1 == "status" ]; then
     echo_status
+  elif [ $1 == "help" ]; then
+    echo_usage
   fi
 
   return 0
