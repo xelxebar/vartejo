@@ -1,0 +1,24 @@
+#! /usr/bin/env sh
+
+HDD_FILE=$1
+CD_FILE=$2
+CD_OPTS=
+
+if [ -n ${CD_FILE} ]; then
+  CD_OPTS=-device ide-drive,bus=ide.0,drive=MacDVD \
+	  -drive id=MacDVD,if=none,snapshot=on,file=${CD_FILE}
+fi
+
+qemu-system-x86_64 -enable-kvm -m 2048 -cpu core2duo \
+	  -device ahci,id=ide \
+	  -usb -device usb-kbd -device usb-mouse \
+	  -device isa-applesmc,osk="6f757268617264776f726b62797468657365776f72647367756172646564706c65617365646f6e74737465616c2863294170706c65436f6d7075746572496e63"\
+	  # -kernel ./chameleon_svn2360_boot \
+	  -smbios type=2 \
+	  -device ide-drive,bus=ide.2,drive=MacHDD \
+	  -drive id=MacHDD,if=none,file=${HDD_FILE} \
+    ${CD_OPTS} \
+	  -netdev user,id=usr0 \
+	  -device e1000-82545em,netdev=usr0,id=vnet0,bus=pci.0,addr=5 \
+	  -monitor stdio \
+    -smp 4,cores=2

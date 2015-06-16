@@ -1,0 +1,138 @@
+#! /usr/bin/env sh
+# vim: set filetype=sh foldmethod=marker :
+
+# The MIT License (MIT) ------------------------------------------------{{{
+# 
+# Copyright (c) 2014 Wilson, Brandon
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+# 
+# ----------------------------------------------------------------------}}}
+
+STATUS_ENABLED=100
+STATUS_DISABLED=101
+STATUS_ERROR=900
+
+
+function xscreensaver_disable () {
+  local PING_INTERVAL=60  # seconds
+  
+  if get_status || [ $? -eq $STATUS_DISABLED ]; then
+    return 1
+  fi
+
+  xscreensaver_deactivate_watchdog $PING_INTERVAL &
+
+  save_pid $!
+
+  return 0
+}
+
+function xscreensaver_deactivate_watchdog () {
+  while true; do
+    sleep $1
+    xscreensaver-command -deactivate 2>&- >/dev/null
+  done
+}
+
+function xscreensaver_enable () {
+  
+  if get_status || [ $? -eq $STATUS_ENABLED ]; then
+    return 1
+  fi
+
+  kill $(get_pid)
+  clear_pid
+  
+  return 0
+}
+
+function xscreensaver_toggle () {
+
+  if get_status || [ $? -eq $STATUS_ENABLED ]; then
+    xscreensaver_disable
+  elif get_status || [ $? -eq $STATUS_DISABLED ]; then
+    xscreensaver_enable
+  else
+    echo "error: cannot toggle xscreensaver"
+    return 1
+  fi
+
+  return 0
+}
+function get_status () {
+  
+  if [ -f $(get_pid_file) ]; then
+    return $STATUS_DISABLED
+  else
+    return $STATUS_ENABLED
+  fi
+
+  return $STATUS_ERROR
+}
+
+function echo_status () {
+  
+  if get_status || [ $? -eq $STATUS_ENABLED ]; then
+    echo "xscreensaver enabled"
+  elif get_status || [ $? -eq $STATUS_DISABLED ]; then
+    echo "xscreensaver disabled"
+  else
+    echo "error: xscreensaver status unknown"
+    return 1
+  fi
+
+  return 0
+}
+
+function get_pid_file () {
+  local TMP=/tmp
+  local PID_FILE="xscreensaver-toggle.pid"
+
+  echo $TMP/$PID_FILE
+}
+
+function save_pid () {
+  echo $1 > $(get_pid_file)
+}
+
+function get_pid () {
+  echo $(cat $(get_pid_file))
+}
+
+function clear_pid () {
+  rm $(get_pid_file)
+}
+
+function main () {
+
+  if [ $# -eq 0 ]; then
+    xscreensaver_toggle
+  elif [ $1 == "on" ]; then
+    xscreensaver_enable
+  elif [ $1 == "off" ]; then
+    xscreensaver_disable
+  elif [ $1 == "status" ]; then
+    echo_status
+  fi
+
+  return 0
+}
+
+main $@

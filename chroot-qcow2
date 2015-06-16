@@ -1,0 +1,143 @@
+#! /usr/bin/env sh
+
+ERROR_NO_QCOW2=100
+ERROR_NO_NBD=110
+ERROR_NO_MDAT=120
+
+VERBOSE="--verbose"
+
+MDAT_PATH=${PWD}/.chroot.metadata
+MDAT_DEV_IMG=
+MDAT_MNT_DEV=
+MDAT_MNT_DIR=
+MDAT_MNT_PARTS=()
+MDAT_MNT_BINDS=()
+
+function set_free_nbd_dev() {
+  sudo modprobe ${VERBOSE} nbd max_part=16
+  NBD_DEVS=$(ls /dev/nbd* | awk -F '/' '{print $3}')
+  NBD_USED_DEVS=$(lsblk | awk '/nbd/{if($6=="disk"){print $1}}')
+  NBD_FREE_DEVS=()
+
+  for dev in ${NBD_DEVS[@]}; do
+    DEV_FREE=1
+    for used_dev in ${NBD_USED_DEVS[@]}; do
+      [[ ${dev} = ${used_dev} ]] && DEV_FREE=0
+    done
+    [[ ${DEV_FREE} = 1 ]] && NBD_FREE_DEVS+=(${dev})
+  done
+
+  if [ ${#NBD_FREE_DEVS[@]} -gt 0 ]; then
+    MDAT_MNT_DEV=/dev/${NBD_FREE_DEVS[0]}
+    return 0
+  else
+    echo "Error: No free network block devices found."
+    return $ERROR_NO_NBD
+  fi
+}
+
+function chroot_into_img_part() {
+  MDAT_DEV_IMG=${1}; shift;
+  MDAT_MNT_PARTS=(${1}); shift;
+  MDAT_MNT_DIR=$(sudo mktemp -d -p /mnt)
+
+  if [ ! -f ${MDAT_DEV_IMG} ]; then
+    echo "Error: qcow2 file ${MDAT_DEV_IMG} doesn't exist"
+    return $ERROR_NO_QCOW2
+  fi
+
+  set_free_nbd_dev                                                           &&
+  sudo qemu-nbd --connect=${MDAT_MNT_DEV} ${MDAT_DEV_IMG}                    &&
+  sleep 0.300s                                                               &&
+  sudo mount ${VERBOSE} ${MDAT_MNT_DEV}p${MDAT_MNT_PARTS[0]} ${MDAT_MNT_DIR} &&
+
+  sudo mount ${VERBOSE} --bind        /dev   ${MDAT_MNT_DIR}/dev  &&
+  sudo mount ${VERBOSE} --types proc  proc   ${MDAT_MNT_DIR}/proc &&
+  sudo mount ${VERBOSE} --types sysfs sysfs  ${MDAT_MNT_DIR}/sys  &&
+  sudo mount ${VERBOSE} --types tmpfs tmpfs  ${MDAT_MNT_DIR}/run  &&
+
+  PARM_CNT=2
+  while [ ${#} -ge ${PARM_CNT} ]; do
+    SUBDIR=${1}
+    PART=${2}
+    MDAT_MNT_PARTS+=(${PART})
+
+    sudo mount ${VERBOSE} ${MDAT_MNT_DEV}p${PART} ${MDAT_MNT_DIR}/${SUBDIR}
+
+    shift ${PARM_CNT}
+  done
+
+  cat > ${MDAT_PATH} <<EOF
+    MDAT_DEV_IMG=${MDAT_DEV_IMG}
+    MDAT_MNT_PARTS=(${MDAT_MNT_PARTS[*]})
+    MDAT_MNT_DEV=${MDAT_MNT_DEV}
+    MDAT_MNT_DIR=${MDAT_MNT_DIR}
+EOF
+
+  sudo chroot ${MDAT_MNT_DIR} \
+              /usr/bin/env -i HOME=/root \
+                              TERM=${TERM} \
+                              PS1='\u:\w\$ ' \
+                              PATH=/bin:/usr/bin:/sbin:/usr/sbin \
+              /bin/bash --login +h
+
+}
+
+function cleanup() {
+  if [ -f ${MDAT_PATH} ]; then
+    source ${MDAT_PATH}
+  else
+    MDAT_FILENAME=$(basename ${MDAT_PATH})
+    echo "Cannot find \$PWD/${MDAT_FILENAME}. Unsure what to clean up."
+    return $ERROR_NO_MDAT
+  fi
+  
+  sudo umount ${VERBOSE} ${MDAT_MNT_DIR}/run    &&
+  sudo umount ${VERBOSE} ${MDAT_MNT_DIR}/sys    &&
+  sudo umount ${VERBOSE} ${MDAT_MNT_DIR}/proc   &&
+  sudo umount ${VERBOSE} ${MDAT_MNT_DIR}/dev    &&
+
+  for (( i = ${#MDAT_MNT_PARTS[@]} - 1; i >= 0; i-- )); do
+    CURR_PART=${MDAT_MNT_PARTS[i]}
+    sudo umount ${VERBOSE} ${MDAT_MNT_DEV}p${CURR_PART}
+  done
+
+  sudo qemu-nbd ${VERBOSE} --disconnect ${MDAT_MNT_DEV} &&
+  sudo modprobe ${VERBOSE} --remove nbd            &&
+  
+  sudo rmdir ${VERBOSE} ${MDAT_MNT_DIR}    &&
+  sudo rm ${VERBOSE} ${MDAT_PATH}
+}
+
+function print_usage() {
+  txtfg_=$(tput setaf 3)
+  _txtfg=$(tput sgr0)
+  echo "${txtfg_}Chroot into an environment on a qcow2 image.${_txtfg}"
+  echo
+
+  echo "${1} <qcow2_image> <partition_number> [<mountpoint> <partition_number> [...]]"
+  echo "${1}"
+  echo "${1} cleanup"
+  echo
+  echo "The first form above chroots into partition_number on qcow2_image,"
+  echo "optionally mounting additional partitions_number(s) to mountpoint(s)."
+  echo "Note that mountpoints are not / prefixed."
+  echo
+  echo "The second form is equivalent to"
+  echo
+  echo "  $ ${1} img.qcow2 3 boot 1"
+  echo
+  echo "The third form unmounts the chroot environment and performs"
+  echo "additional, necessary cleanup."
+}
+
+function main() {
+  case ${1} in
+    "")             chroot_into_img_part img.qcow2 3 boot 1;;
+    -?[a-zA-Z]*)    print_usage ${0};;
+    cleanup )       cleanup;;
+    *)              chroot_into_img_part ${@};;
+  esac
+}
+
+main ${@}

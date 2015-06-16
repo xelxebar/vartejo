@@ -1,0 +1,121 @@
+#! /usr/bin/env sh
+# vim: set filetype=sh foldmethod=marker :
+
+# The MIT License (MIT) ------------------------------------------------{{{
+# 
+# Copyright (c) 2014 Wilson, Brandon
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+# 
+# ----------------------------------------------------------------------}}}
+
+function _main {
+### Module Start
+
+
+local STATUS_ENABLED=100
+local STATUS_DISABLED=101
+local STATUS_ERROR=900
+
+
+function synclient_disable () {
+  local PING_INTERVAL=60  # seconds
+  
+  if get_status || [ $? -eq $STATUS_DISABLED ]; then
+    return 1
+  fi
+
+  synclient TouchpadOff=1
+
+  return 0
+}
+
+function synclient_enable () {
+  
+  if get_status || [ $? -eq $STATUS_ENABLED ]; then
+    return 1
+  fi
+
+  synclient TouchpadOff=0
+  
+  return 0
+}
+
+function synclient_toggle () {
+
+  if get_status || [ $? -eq $STATUS_ENABLED ]; then
+    synclient_disable
+  elif get_status || [ $? -eq $STATUS_DISABLED ]; then
+    synclient_enable
+  else
+    echo "error: cannot toggle synclient"
+    return 1
+  fi
+
+  return 0
+}
+
+function get_status () {
+  local TOUCHPAD_OFF=$(synclient -l | awk '/TouchpadOff/{print $3}')
+  
+  if [ $TOUCHPAD_OFF -eq 1 ]; then
+    return $STATUS_DISABLED
+  elif [ $TOUCHPAD_OFF -eq 0 ]; then
+    return $STATUS_ENABLED
+  fi
+
+  return $STATUS_ERROR
+}
+
+function echo_status () {
+  
+  if get_status || [ $? -eq $STATUS_ENABLED ]; then
+    echo "mouse enabled"
+  elif get_status || [ $? -eq $STATUS_DISABLED ]; then
+    echo "mouse disabled"
+  else
+    echo "error: mouse status unknown"
+    return 1
+  fi
+
+  return 0
+}
+
+function main () {
+
+  if [ $# -eq 0 ]; then
+    synclient_toggle
+  elif [ $1 == "on" ]; then
+    synclient_enable
+  elif [ $1 == "off" ]; then
+    synclient_disable
+  elif [ $1 == "status" ]; then
+    echo_status
+  fi
+
+  return 0
+}
+
+main $@
+
+
+### Module End
+}
+_main $@
+[[ -n $(typeset -f _main) ]] && unset -f _main
