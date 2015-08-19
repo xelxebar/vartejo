@@ -1,0 +1,371 @@
+#! /usr/bin/env sh
+# vim: filetype=sh :
+
+function __init__ () {
+#--- Module Start  ---#
+
+
+### Global Variables ###
+
+typeset -A ErrCode
+ErrCode[MisingExec]=110
+ErrCode[PathEmpty]=120
+ErrCode[PathInaccessible]=130
+ErrCode[UnknownArg]=210
+ErrCode[UnrecognizedCommand]=220
+ErrCode[ConfigIncompatible]=310
+ErrCode[UnsupportedJson]=1010
+
+typeset -A Path
+Path[Config]=""
+Path[ConfigDefault]="${HOME}/.cabal-store/packages.store"
+Path[Base]=""
+Path[Bin]=""
+Path[Store]=""
+
+typeset -A Conf
+Conf[SupportedVersion]="0.0.1"
+Conf[Version]="config-version"
+Conf[Path]="paths"
+Conf[Bin]="bin"
+Conf[Store]="store"
+Conf[Packages]="packages"
+Conf[ExtraDeps]="extra-deps"
+
+
+### Helper Functions ###
+
+function sortArray () {
+  if [[ ${#} != 1 ]]; then
+    exit -1
+  fi
+
+  local A=(${1})
+  local oldIFS=${IFS}
+  IFS=$'\n' 
+  
+  local sortedA=($(sort -n <<<"${A[*]}"))
+  echo ${sortedA[@]}
+
+  IFS=${oldIFS}
+}
+
+function arrayDifference () {
+  if [[ ${#} != 2 ]]; then
+    exit -1
+  fi
+
+  local A=(${1})
+  local B=(${2})
+  local C=()
+
+  for p in "${A[@]}"; do
+    local isUnique="true"
+
+    for q in "${B[@]}"; do
+      if [[ ${p} == ${q} ]]; then
+        isUnique="false"
+        break
+      fi
+    done
+
+    [[ ${isUnique} == "false" ]] || C+=("${p}")
+  done
+
+  echo ${C[@]}
+}
+
+
+### Getters and Setters ###
+
+function setPath () {
+  if [[ -z "${2}" ]]; then
+    errPathEmpty "${1}"
+  elif [[ ! -e "${2}" ]]; then
+    errPathInaccessible "${2}"
+  fi
+
+  Path["${1}"]="${2}"
+}
+
+function setPathFromConfig () {
+  setPath "${1}" "$(getFullPathFromConfig ${1})"
+}
+
+function getFullPathFromConfig () {
+  local relPath=$(getConfigProp Path "${1}")
+
+  echo "${Path[Base]}/${relPath}"
+}
+
+function getConfigProp () {
+  local spec=""
+  local type=""
+
+  for prop in ${@}; do
+    local selector=${Conf[${prop}]}
+
+    if [[ -z "${selector}" ]]; then
+      selector=${prop}
+    fi
+
+    spec="${spec}.\"${selector}\""
+  done
+
+  type=$(jq -r "${spec}|type" "${Path[Config]}")
+  
+  if [[ ${type} == "number" ||
+        ${type} == "boolean" ||
+        ${type} == "string" ]]; then
+    jq -r "${spec}" "${Path[Config]}"
+  elif [[ ${type} == "array" ]]; then
+    jq -r "${spec}|join(\" \")" "${Path[Config]}"
+  elif [[ ${type} == "object" ]]; then
+    jq -r "${spec}|keys|join(\" \")" "${Path[Config]}"
+  elif [[ ${type} == "null" ]]; then
+    echo ""
+  else
+    errUnsupportedJson "${spec}"
+  fi
+}
+
+
+### Printing Functions ###
+
+function printUsage () {
+  cat <<-USAGE
+  Usage: $(basename ${1}) [-c <path_to_config>] <command>
+
+  COMMAND LIST
+
+    init  Initialize the cabal store.
+
+    install <package list>
+
+          Install the list of packages in <package list> into the
+          cabal store.
+
+    install <package list>
+
+          Uninstall the list of packages in <package list> from the
+          cabal store.
+
+    sync  Synchronize the installed packages to the ones declare in
+          config file.
+
+    help  Print this help.
+USAGE
+}
+
+function errMissingExec () {
+  cat <<-ERR
+  ERROR: Could not find ${1} on PATH.
+ERR
+  
+  exit ${ErrCode[MissingExec]}
+}
+
+function errPathEmpty () {
+  cat <<-ERR
+  ERROR: No file specified: ${1}
+ERR
+  
+  exit ${ErrCode[PathEmpty]}
+}
+
+function errPathInaccessible () {
+  cat <<-ERR
+  ERROR: Cannot access file ${1}
+ERR
+  
+  exit ${ErrCode[PathInaccessible]}
+}
+
+function errConfigIncompatible () {
+  cat <<-ERR
+  ERROR: Incompatible configuration file format.
+  Expected version ${1} but found version ${2}.
+ERR
+
+  exit ${ErrCode[ConfigIncompatible]}
+}
+
+function errUnsupportedJson () {
+  cat <<-ERR
+  ERROR: Json in unsupported format for key ${2}.
+ERR
+
+  exit ErrCode[UnsupportedJson]
+}
+
+function errUnrecognizedCommand () {
+  cat <<-ERR
+  ERROR: Unrecognized Command: ${@}
+
+ERR
+
+  printUsage ${0}
+
+  exit ${ErrCode[UnrecognizedCommand]}
+}
+
+### Environment Checks ###
+
+function parseOpts () {
+  while getopts :c: OPT; do
+    case ${OPT} in
+      c) setConfig ${OPTARG};;
+      ?) printUsage ${0}
+         exit ${ErrCode[UnknownArg]};;
+    esac
+  done
+
+  shift $((${OPTIND} - 1))
+}
+
+function parsePrelimCommands () {
+  if [[ "${@}" == "init" ]]; then
+    initializeCabalStore
+  fi
+}
+
+function parseCommands () {
+  if [[ ${#} == 0 ||
+        "${@}" == "help" ]]; then
+    printUsage ${0}
+    exit 0
+  elif [[ "${1}" == "install" ]]; then
+    shift
+    installPackages ${@}
+  elif [[ "${1}" == "uninstall" ]]; then
+    shift
+    removePackages ${@}
+  elif [[ "${@}" == "sync" ]]; then
+    synchronizePackages
+  else
+    errUnrecognizedCommand ${@}
+  fi
+}
+
+function checkDeps () {
+  local deps=( cabal jq )
+
+  for dep in ${deps[@]}; do
+    if [[ ! -x $(which ${dep} 2>/dev/null) ]]; then
+      errMissingExec ${dep}
+    fi
+  done
+}
+
+function checkConfig () {
+  if [[ -z "${Path[Config]}" ]]; then
+    setPath Config "${Path[ConfigDefault]}"
+  fi
+}
+
+function checkConfigVersion () {
+  local configVersion=$(getConfigProp Version)
+
+  if [[ ${Conf[SupportedVersion]} != ${configVersion} ]]; then
+    errConfigIncompatible ${Conf[SupportedVersion]} ${configVersion}
+  fi
+}
+
+
+### Command Functions ###
+
+function initializeCabalStore () {
+  mkdir -p $(getFullPathFromConfig Store)
+  mkdir -p $(getFullPathFromConfig Bin)
+}
+
+
+### Install Functions ###
+
+function installPackageLocally () {
+  local pkg=${1}
+  local deps=$(getConfigProp Packages ${pkg} ExtraDeps)
+  local startDir=${PWD}
+
+  mkdir ${pkg}
+  cd ${pkg}
+
+  cabal sandbox init
+  cabal install ${deps[@]} ${pkg}
+
+  cd "${startDir}"
+}
+
+function removePackage () {
+  local pkg=${1}
+
+  rm -r "${Path[Store]}/${pkg}"
+}
+
+function createPackageSymlink () {
+  local pkg=${1}
+  local dir=${2}
+
+  ln -s "${Path[Store]}/${pkg}/.cabal-sandbox/bin/${pkg}" "${dir}/${pkg}"
+}
+
+function installPackages () {
+  local packages=${@}
+  local startDir=${PWD}
+
+  cd "${Path[Store]}"
+  
+  for pkg in ${packages[@]}; do
+    installPackageLocally ${pkg}
+    createPackageSymlink ${pkg} "${Path[Bin]}"
+  done 
+  
+  cd "${startDir}"
+}
+
+function removePackages () {
+  local pkgs=${@}
+
+  for pkg in ${pkgs[@]}; do
+    removePackage ${pkg}
+  done
+}
+
+function synchronizePackages () {
+  local installedPkgs=$(ls -1 "${Path[Store]}")
+  local declaredPkgs=$(getConfigProp Packages)
+  local missingPkgs=$(arrayDifference "${declaredPkgs[*]}" "${installedPkgs[*]}")
+  local surplusPkgs=$(arrayDifference "${installedPkgs[*]}" "${declaredPkgs[*]}")
+
+  removePackages ${surplusPkgs[@]}
+  installPackages ${missingPkgs[@]}
+}
+
+
+### Main Execution ###
+
+function main () {
+  parseOpts ${@}
+
+  checkDeps
+  checkConfig
+  checkConfigVersion
+  setPath Base $(dirname ${Path[Config]})
+
+  parsePrelimCommands ${@}
+
+  setPathFromConfig Store
+  setPathFromConfig Bin
+
+  parseCommands ${@}
+
+  return 0
+}
+
+main ${@}
+
+
+#--- Module End ---#
+}
+__init__ ${@}
+[[ -n $(typeset -f __init__) ]] && unset -f __init__
