@@ -310,6 +310,7 @@ function removePackage () {
   local pkg=${1}
 
   rm -r "$(getPackagePath ${pkg})"
+  rm -r "${Path[Bin]}/${pkg}"
 }
 
 function createPackageSymlink () {
