@@ -257,8 +257,8 @@ function parseCommands () {
   fi
 }
 
-function checkDeps () {
-  local deps=( cabal jq )
+function checkDependencies () {
+  local deps=( cabal jq cut )
 
   for dep in ${deps[@]}; do
     if [[ ! -x $(which ${dep} 2>/dev/null) ]]; then
@@ -368,7 +368,7 @@ function listInstalledPackages () {
 function main () {
   parseOpts ${@}
 
-  checkDeps
+  checkDependencies
   checkConfig
   checkConfigVersion
   setPath Base $(dirname ${Path[Config]})
