@@ -32,23 +32,15 @@ Conf[Store]="store"
 Conf[Packages]="packages"
 Conf[ExtraDeps]="extra-deps"
 
+typeset -A Command
+Command[Init]="init"
+Command[Install]="install"
+Command[Remove]="uninstall"
+Command[Sync]="sync"
+Command[Help]="help"
+
 
 ### Helper Functions ###
-
-function sortArray () {
-  if [[ ${#} != 1 ]]; then
-    exit -1
-  fi
-
-  local A=(${1})
-  local oldIFS=${IFS}
-  IFS=$'\n' 
-  
-  local sortedA=($(sort -n <<<"${A[*]}"))
-  echo ${sortedA[@]}
-
-  IFS=${oldIFS}
-}
 
 function arrayDifference () {
   if [[ ${#} != 2 ]]; then
@@ -138,22 +130,28 @@ function printUsage () {
 
   COMMAND LIST
 
-    init  Initialize the cabal store.
+    ${Command[Init]}
+          
+          Initialize the cabal store.
 
-    install <package list>
+    ${Command[Install]} <package list>
 
           Install the list of packages in <package list> into the
           cabal store.
 
-    install <package list>
+    ${Command[Remove]} <package list>
 
           Uninstall the list of packages in <package list> from the
           cabal store.
 
-    sync  Synchronize the installed packages to the ones declare in
+    ${Command[Sync]}
+          
+          Synchronize the installed packages to the ones declare in
           config file.
 
-    help  Print this help.
+    ${Command[Help]}
+    
+          Print this help.
 USAGE
 }
 
@@ -224,23 +222,23 @@ function parseOpts () {
 }
 
 function parsePrelimCommands () {
-  if [[ "${@}" == "init" ]]; then
+  if [[ "${@}" == "${Command[Init]}" ]]; then
     initializeCabalStore
   fi
 }
 
 function parseCommands () {
   if [[ ${#} == 0 ||
-        "${@}" == "help" ]]; then
+        "${@}" == "${Command[Help]}" ]]; then
     printUsage ${0}
     exit 0
-  elif [[ "${1}" == "install" ]]; then
+  elif [[ "${1}" == "${Command[Install]}" ]]; then
     shift
     installPackages ${@}
-  elif [[ "${1}" == "uninstall" ]]; then
+  elif [[ "${1}" == "${Command[Remove]}" ]]; then
     shift
     removePackages ${@}
-  elif [[ "${@}" == "sync" ]]; then
+  elif [[ "${@}" == "${Command[Sync]}" ]]; then
     synchronizePackages
   else
     errUnrecognizedCommand ${@}
