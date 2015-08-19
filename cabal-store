@@ -18,7 +18,7 @@ ErrCode[UnsupportedJson]=1010
 
 typeset -A Path
 Path[Config]=""
-Path[ConfigDefault]="${HOME}/.cabal-store/packages.store"
+Path[ConfigDefault]="${HOME}/.cabal-store/store.conf"
 Path[Base]=""
 Path[Bin]=""
 Path[Store]=""
