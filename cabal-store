@@ -37,6 +37,7 @@ Command[Init]="init"
 Command[Install]="install"
 Command[Remove]="uninstall"
 Command[Sync]="sync"
+Command[List]="list"
 Command[Help]="help"
 
 
@@ -82,6 +83,12 @@ function setPath () {
 
 function setPathFromConfig () {
   setPath "${1}" "$(getFullPathFromConfig ${1})"
+}
+
+function getPackagePath () {
+  local pkg=${1}
+
+  echo "${Path[Store]}/${pkg}"
 }
 
 function getFullPathFromConfig () {
@@ -148,6 +155,10 @@ function printUsage () {
           
           Synchronize the installed packages to the ones declare in
           config file.
+
+    ${Command[List]}
+
+          List all packages currently installed in the store.
 
     ${Command[Help]}
     
@@ -231,7 +242,8 @@ function parseCommands () {
   if [[ ${#} == 0 ||
         "${@}" == "${Command[Help]}" ]]; then
     printUsage ${0}
-    exit 0
+  elif [[ "${@}" == "${Command[List]}" ]]; then
+    listInstalledPackages
   elif [[ "${1}" == "${Command[Install]}" ]]; then
     shift
     installPackages ${@}
@@ -297,14 +309,14 @@ function installPackageLocally () {
 function removePackage () {
   local pkg=${1}
 
-  rm -r "${Path[Store]}/${pkg}"
+  rm -r "$(getPackagePath ${pkg})"
 }
 
 function createPackageSymlink () {
   local pkg=${1}
   local dir=${2}
 
-  ln -s "${Path[Store]}/${pkg}/.cabal-sandbox/bin/${pkg}" "${dir}/${pkg}"
+  ln -s "$(getPackagePath ${pkg})/.cabal-sandbox/bin/${pkg}" "${dir}/${pkg}"
 }
 
 function installPackages () {
@@ -337,6 +349,16 @@ function synchronizePackages () {
 
   removePackages ${surplusPkgs[@]}
   installPackages ${missingPkgs[@]}
+}
+
+function listInstalledPackages () {
+  local pkglist=$(ls -1 ${Path[Store]})
+
+  for pkg in ${pkglist[@]}; do
+    grep "package: ${pkg}" \
+      "$(getPackagePath ${pkg})/.cabal-sandbox/logs/build.log" | \
+      cut -d' ' -f2
+  done
 }
 
 
