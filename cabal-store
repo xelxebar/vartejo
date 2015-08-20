@@ -8,23 +8,34 @@ function __init__ () {
 ### Global Variables ###
 
 typeset -A ErrCode
+ErrCode[100]="I/O Errors"
 ErrCode[MisingExec]=110
 ErrCode[PathEmpty]=120
 ErrCode[PathInaccessible]=130
+ErrCode[FileExists]=140
+
+ErrCode[200]="Command Argument Errors"
 ErrCode[UnknownArg]=210
 ErrCode[UnrecognizedCommand]=220
+
+ErrCode[300]="Config File Errors"
 ErrCode[ConfigIncompatible]=310
+
+ErrCode[1000]="JSON Errors"
 ErrCode[UnsupportedJson]=1010
 
-typeset -A Path
-Path[Config]=""
-Path[ConfigDefault]="${HOME}/.cabal-store/store.conf"
-Path[Base]=""
-Path[Bin]=""
-Path[Store]=""
+typeset -A Command
+Command[StartIndex]=0
+Command[Init]="init"
+Command[Install]="install"
+Command[Remove]="uninstall"
+Command[Sync]="sync"
+Command[List]="list"
+Command[Help]="help"
 
 typeset -A Conf
 Conf[SupportedVersion]="0.0.1"
+Conf[Description]="description"
 Conf[Version]="config-version"
 Conf[Path]="paths"
 Conf[Bin]="bin"
@@ -32,13 +43,23 @@ Conf[Store]="store"
 Conf[Packages]="packages"
 Conf[ExtraDeps]="extra-deps"
 
-typeset -A Command
-Command[Init]="init"
-Command[Install]="install"
-Command[Remove]="uninstall"
-Command[Sync]="sync"
-Command[List]="list"
-Command[Help]="help"
+typeset -A Default
+Default[BasePath]="${HOME}/.cabal-store"
+Default[ConfigPath]="${Default[BasePath]}/store.conf"
+Default[StorePath]="${Default[BasePath]}/store"
+Default[BinPath]="${Default[BasePath]}/bin"
+
+typeset -A Path
+Path[Config]=""
+Path[Bin]=""
+Path[Store]=""
+Path[SandboxBin]=".cabal-sandbox/bin"
+Path[CabalLog]=".cabal-sandbox/logs/build.log"
+
+typeset -A Opt
+Opt[ConfigPath]=""
+Opt[StorePath]=""
+Opt[BinPath]=""
 
 
 ### Helper Functions ###
@@ -71,38 +92,71 @@ function arrayDifference () {
 
 ### Getters and Setters ###
 
+function getPath () {
+  local key=${1}
+
+  echo ${Path["${key}"]}
+}
+
 function setPath () {
-  if [[ -z "${2}" ]]; then
-    errPathEmpty "${1}"
-  elif [[ ! -e "${2}" ]]; then
-    errPathInaccessible "${2}"
+  local key=${1}
+  local path=${2}
+
+  if [[ -z "${path}" ]]; then
+    errPathEmpty "${key}"
+  elif [[ ! -e "${path}" ]]; then
+    errPathInaccessible "${path}"
   fi
 
-  Path["${1}"]="${2}"
+  Path["${key}"]="${path}"
 }
 
 function setPathFromConfig () {
-  setPath "${1}" "$(getFullPathFromConfig ${1})"
+  local key=${1}
+  local rawPath="$(getConfigProp Path ${key})"
+  local absolutePath=""
+
+  if [[ "$(realpath ${rawPath})" == "${rawPath}" ]]; then
+    absolutePath="${rawPath}"
+  else
+    absolutePath="$(dirname $(getPath Config))/${rawPath}"
+  fi
+
+  setPath "${key}" "${absolutePath}"
 }
 
-function getPackagePath () {
-  local pkg=${1}
+function getConf () {
+  local key=${1}
 
-  echo "${Path[Store]}/${pkg}"
+  echo "${Conf[${key}]}"
 }
 
-function getFullPathFromConfig () {
-  local relPath=$(getConfigProp Path "${1}")
+function getDefault () {
+  local key=${1}
 
-  echo "${Path[Base]}/${relPath}"
+  echo ${Default["${key}"]}
+}
+
+function setOpt () {
+  local key=${1}
+  local value=${2}
+
+  Opt["${key}"]="${value}"
+}
+
+function getOpt () {
+  local key=${1}
+
+  echo ${Opt["${key}"]}
 }
 
 function getConfigProp () {
+  local props=${@}
   local spec=""
   local type=""
 
-  for prop in ${@}; do
-    local selector=${Conf[${prop}]}
+  for prop in ${props}; do
+    local selector=$(getConf ${prop})
 
     if [[ -z "${selector}" ]]; then
       selector=${prop}
@@ -111,16 +165,16 @@ function getConfigProp () {
     spec="${spec}.\"${selector}\""
   done
 
-  type=$(jq -r "${spec}|type" "${Path[Config]}")
+  type=$(jq -r "${spec}|type" "$(getPath Config)")
   
   if [[ ${type} == "number" ||
         ${type} == "boolean" ||
         ${type} == "string" ]]; then
     jq -r "${spec}" "${Path[Config]}"
   elif [[ ${type} == "array" ]]; then
-    jq -r "${spec}|join(\" \")" "${Path[Config]}"
+    jq -r "${spec}|join(\" \")" "$(getPath Config)"
   elif [[ ${type} == "object" ]]; then
-    jq -r "${spec}|keys|join(\" \")" "${Path[Config]}"
+    jq -r "${spec}|keys|join(\" \")" "$(getPath Config)"
   elif [[ ${type} == "null" ]]; then
     echo ""
   else
@@ -129,11 +183,49 @@ function getConfigProp () {
 }
 
 
+### Path Construction ###
+
+function getPackagePath () {
+  local key=${1}
+  local pkg=${2}
+  local path=""
+
+  if [[ "${key}" == "SandboxBin" ]]; then
+    path="$(getPath Store)/${pkg}/$(getPath ${key})/${pkg}"
+  elif [[ "${key}" == "CabalLog" ]]; then
+    path="$(getPath Store)/${pkg}/$(getPath ${key})"
+  else
+    path="$(getPath ${key})/${pkg}"
+  fi
+
+  echo "${path}"
+}
+
+
 ### Printing Functions ###
 
 function printUsage () {
+  local exePath=${1}
+  local exeName=$(basename "${exePath}")
+
   cat <<-USAGE
-  Usage: $(basename ${1}) [-c <path_to_config>] <command>
+  Usage: ${exeName} [<option list>] <command>
+
+  OPTION LIST
+
+    -c <config path>
+
+          Declare path to config file.
+
+    -s <store path>
+
+          Declare path to the "store" directory, where individual
+          packages are installed.
+
+    -b <bin path>
+
+          Declare path to the "bin" directory, where symlinks to
+          package executables are installed.
 
   COMMAND LIST
 
@@ -167,49 +259,72 @@ USAGE
 }
 
 function errMissingExec () {
+  local exeName=${1}
+
   cat <<-ERR
-  ERROR: Could not find ${1} on PATH.
+  ERROR: Could not find ${exeName} on PATH.
 ERR
   
   exit ${ErrCode[MissingExec]}
 }
 
 function errPathEmpty () {
+  local pathSpec=${1}
+
   cat <<-ERR
-  ERROR: No file specified: ${1}
+  ERROR: No file specified: ${pathSpec}
 ERR
   
   exit ${ErrCode[PathEmpty]}
 }
 
 function errPathInaccessible () {
+  local path=${1}
+
   cat <<-ERR
-  ERROR: Cannot access file ${1}
+  ERROR: Cannot access file ${path}
 ERR
   
   exit ${ErrCode[PathInaccessible]}
 }
 
+function errFileExists () {
+  local path=${1}
+
+  cat <<-ERR
+  ERROR: File exists: ${path}
+ERR
+
+  exit ${ErrCode[FileExists]}
+}
+
 function errConfigIncompatible () {
+  local expectedVersion=${1}
+  local foundVersion=${2}
+
   cat <<-ERR
   ERROR: Incompatible configuration file format.
-  Expected version ${1} but found version ${2}.
+  Expected version ${expectedVersion} but found version ${foundVersion}
 ERR
 
   exit ${ErrCode[ConfigIncompatible]}
 }
 
 function errUnsupportedJson () {
+  local key=${1}
+
   cat <<-ERR
-  ERROR: Json in unsupported format for key ${2}.
+  ERROR: Json in unsupported format for key ${key}
 ERR
 
-  exit ErrCode[UnsupportedJson]
+  exit ${ErrCode[UnsupportedJson]}
 }
 
 function errUnrecognizedCommand () {
+  local commandSpec="${@}"
+
   cat <<-ERR
-  ERROR: Unrecognized Command: ${@}
+  ERROR: Unrecognized Command: ${commandSpec[*]}
 
 ERR
 
@@ -220,40 +335,35 @@ ERR
 
 ### Environment Checks ###
 
-function parseOpts () {
-  while getopts :c: OPT; do
-    case ${OPT} in
-      c) setConfig ${OPTARG};;
-      ?) printUsage ${0}
-         exit ${ErrCode[UnknownArg]};;
-    esac
-  done
-
-  shift $((${OPTIND} - 1))
-}
-
 function parsePrelimCommands () {
-  if [[ "${@}" == "${Command[Init]}" ]]; then
+  if [[ ${#} == 0 ||
+        "${@}" == "${Command[Help]}" ]]; then
+    printUsage ${0}
+    exit 0
+  elif [[ "${@}" == "${Command[Init]}" ]]; then
     initializeCabalStore
+    exit 0
   fi
 }
 
 function parseCommands () {
-  if [[ ${#} == 0 ||
-        "${@}" == "${Command[Help]}" ]]; then
-    printUsage ${0}
-  elif [[ "${@}" == "${Command[List]}" ]]; then
+  if [[ "${@}" == "${Command[List]}" ]]; then
     listInstalledPackages
+    exit 0
   elif [[ "${1}" == "${Command[Install]}" ]]; then
     shift
     installPackages ${@}
+    exit 0
   elif [[ "${1}" == "${Command[Remove]}" ]]; then
     shift
     removePackages ${@}
+    exit 0
   elif [[ "${@}" == "${Command[Sync]}" ]]; then
     synchronizePackages
+    exit 0
   else
     errUnrecognizedCommand ${@}
+    exit 0
   fi
 }
 
@@ -267,30 +377,16 @@ function checkDependencies () {
   done
 }
 
-function checkConfig () {
-  if [[ -z "${Path[Config]}" ]]; then
-    setPath Config "${Path[ConfigDefault]}"
-  fi
-}
-
 function checkConfigVersion () {
   local configVersion=$(getConfigProp Version)
 
-  if [[ ${Conf[SupportedVersion]} != ${configVersion} ]]; then
-    errConfigIncompatible ${Conf[SupportedVersion]} ${configVersion}
+  if [[ $(getConf SupportedVersion) != ${configVersion} ]]; then
+    errConfigIncompatible "$(getConf SupportedVersion)" "${configVersion}"
   fi
 }
 
 
-### Command Functions ###
-
-function initializeCabalStore () {
-  mkdir -p $(getFullPathFromConfig Store)
-  mkdir -p $(getFullPathFromConfig Bin)
-}
-
-
-### Install Functions ###
+### Package Management Functions ###
 
 function installPackageLocally () {
   local pkg=${1}
@@ -309,26 +405,74 @@ function installPackageLocally () {
 function removePackage () {
   local pkg=${1}
 
-  rm -r "$(getPackagePath ${pkg})"
-  rm -r "${Path[Bin]}/${pkg}"
+  rm -r "$(getPackagePath Store ${pkg})"
+  rm -r "$(getPackagePath Bin ${pkg})"
 }
 
 function createPackageSymlink () {
   local pkg=${1}
   local dir=${2}
 
-  ln -s "$(getPackagePath ${pkg})/.cabal-sandbox/bin/${pkg}" "${dir}/${pkg}"
+  local target=$(getPackagePath SandboxBin ${pkg})
+  local linkPath=$(getPackagePath Bin ${pkg})
+
+  ln -s "${target}" "${linkPath}"
 }
+
+function makeConfig () {
+  local configPath=${1}
+  local storePath=${2}
+  local binPath=${3}
+
+  cat > "${configPath}" <<-JSON
+  {   "$(getConf Description)": "Cabal Store Configuration"
+    , "$(getConf Version)": "$(getConf SupportedVersion)"
+
+    , "$(getConf Path)": {
+          "$(getConf Store)": "${storePath}"
+        , "$(getConf Bin)": "${binPath}"
+      }
+
+    , "$(getConf Packages)": {}
+  }
+JSON
+}
+
+
+### Command Functions ###
+
+function initializeCabalStore () {
+  if [[ ! -e "$(getOpt ConfigPath)" ]]; then
+    mkdir -p "$(dirname $(getOpt ConfigPath))"
+    makeConfig "$(getOpt ConfigPath)" "$(getOpt StorePath)" "$(getOpt BinPath)"
+  else
+    errFileExists "$(getOpt ConfigPath)"
+  fi
+
+  if [[ ! -e "$(getOpt StorePath)" ]]; then
+    mkdir -p "$(getOpt StorePath)"
+  else
+    errFileExists "$(getOpt StorePath)"
+  fi
+
+  if [[ ! -e "$(getOpt BinPath)" ]]; then
+    mkdir -p "$(getOpt BinPath)"
+  else
+    errFileExists "$(getOpt BinPath)"
+  fi
+
+}
+
 
 function installPackages () {
   local packages=${@}
   local startDir=${PWD}
 
-  cd "${Path[Store]}"
+  cd "$(getPath Store)"
   
   for pkg in ${packages[@]}; do
     installPackageLocally ${pkg}
-    createPackageSymlink ${pkg} "${Path[Bin]}"
+    createPackageSymlink ${pkg} "$(getPath Bin)"
   done 
   
   cd "${startDir}"
@@ -343,7 +487,7 @@ function removePackages () {
 }
 
 function synchronizePackages () {
-  local installedPkgs=$(ls -1 "${Path[Store]}")
+  local installedPkgs=$(ls -1 "$(getPath Store)")
   local declaredPkgs=$(getConfigProp Packages)
   local missingPkgs=$(arrayDifference "${declaredPkgs[*]}" "${installedPkgs[*]}")
   local surplusPkgs=$(arrayDifference "${installedPkgs[*]}" "${declaredPkgs[*]}")
@@ -353,30 +497,72 @@ function synchronizePackages () {
 }
 
 function listInstalledPackages () {
-  local pkglist=$(ls -1 ${Path[Store]})
+  local pkglist=$(ls -1 $(getPath Store))
 
   for pkg in ${pkglist[@]}; do
     grep "package: ${pkg}" \
-      "$(getPackagePath ${pkg})/.cabal-sandbox/logs/build.log" | \
+      "$(getPackagePath Store ${pkg})/.cabal-sandbox/logs/build.log" | \
       cut -d' ' -f2
   done
+}
+
+
+### Initialization Functions ###
+
+function initOpts () {
+  local opts=(ConfigPath StorePath BinPath)
+
+  while getopts :s:b:c: OPT; do
+    local key=""
+    local setopt="false"
+
+    case ${OPT} in
+      b) key=BinPath
+         setopt="true";;
+      s) key=StorePath
+         setopt="true";;
+      c) key=ConfigPath
+         setopt="true";;
+      ?) printUsage ${0}
+         exit ${ErrCode[UnknownArg]};;
+    esac
+
+    if [[ ${setopt} == "true" ]]; then
+      setOpt ${key} "$(realpath ${OPTARG})"
+    fi
+  done
+
+  for opt in ${opts[@]}; do
+    if [[ -z "$(getOpt ${opt})" ]]; then
+      setOpt ${opt} "$(getDefault ${opt})"
+    fi
+  done
+
+  Command[StartIndex]=$((${OPTIND} - 1))
+}
+
+function initPaths () {
+  setPath Config "$(getOpt ConfigPath)"
+
+  checkConfigVersion
+
+  setPathFromConfig Store
+  setPathFromConfig Bin
 }
 
 
 ### Main Execution ###
 
 function main () {
-  parseOpts ${@}
-
   checkDependencies
-  checkConfig
-  checkConfigVersion
-  setPath Base $(dirname ${Path[Config]})
 
+  initOpts ${@}
+  shift ${Command[StartIndex]}
+  
   parsePrelimCommands ${@}
 
-  setPathFromConfig Store
-  setPathFromConfig Bin
+  initPaths
+  checkConfigVersion
 
   parseCommands ${@}
 
