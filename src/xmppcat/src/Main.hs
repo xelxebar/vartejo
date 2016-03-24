@@ -218,7 +218,7 @@ fetchReply msgSpec = do
 
 main :: IO ()
 main = do
-    (commandSpec, runFlags) <- liftM parseArgs getArgs
+    (commandSpec, runFlags) <- fmap parseArgs getArgs
 
     when (debug runFlags) $ updateGlobalLogger "xmppcat" $ setLevel DEBUG
 
