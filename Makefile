@@ -1,13 +1,14 @@
 SRCDIR=$(PWD)/src
 BINDIR=$(PWD)/bin
-PROJECTS=anki             \
-	 chroot-qcow2     \
-	 json-cmd         \
-	 qemu-mac         \
-	 randwipe         \
-	 synclient-toggle \
-	 xmppcat          \
-	 xscreensaver-toggle
+PROJECTS=anki                \
+	 chroot-qcow2        \
+	 json-cmd            \
+	 qemu-mac            \
+	 randwipe            \
+	 synclient-toggle    \
+	 xmppcat             \
+	 xscreensaver-toggle \
+	 browser-watch
 
 
 install: $(patsubst %,install-%,$(PROJECTS))
