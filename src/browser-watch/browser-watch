@@ -15,7 +15,7 @@ if [[ ${#} == 0 ]]; then
 fi
 
 while true; do
-	INOTIFY_OUT=$(inotifywait ${ARGS})
+	INOTIFY_OUT=$(inotifywait -e modify,attrib,move,create,delete ${ARGS})
 	echo ${INOTIFY_OUT}
 	if [[ -n "${INOTIFY_OUT}" ]]; then
 		xdotool windowactivate ${BROW_WIN}
