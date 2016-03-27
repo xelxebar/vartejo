@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 
 BROW_KEY_REFRESH="r"
+BROW_KEY_SCROLL_BOTTOM="G"
 
 echo "Click on browser window"
 BROW_WIN=$(xwininfo | awk '/Window id/{print $4}')
@@ -13,7 +14,7 @@ while true; do
 	echo ${INOTIFY_OUT}
 	if [[ -n "${INOTIFY_OUT}" ]]; then
 		xdotool windowactivate ${BROW_WIN}
-		xdotool key ${BROW_KEY_REFRESH}
+		xdotool type "${BROW_KEY_REFRESH}${BROW_KEY_SCROLL_BOTTOM}"
 		xdotool windowactivate ${TERM_WIN}
 	fi
 done
