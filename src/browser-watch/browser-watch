@@ -9,8 +9,13 @@ BROW_WIN=$(xwininfo | awk '/Window id/{print $4}')
 echo "Click on terminal window"
 TERM_WIN=$(xwininfo | awk '/Window id/{print $4}')
 
+ARGS=${@}
+if [[ ${#} == 0 ]]; then
+	ARGS="-r ."
+fi
+
 while true; do
-	INOTIFY_OUT=$(inotifywait -e modify,attrib,move,create,delete $@)
+	INOTIFY_OUT=$(inotifywait ${ARGS})
 	echo ${INOTIFY_OUT}
 	if [[ -n "${INOTIFY_OUT}" ]]; then
 		xdotool windowactivate ${BROW_WIN}
