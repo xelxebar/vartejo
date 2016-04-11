@@ -9,7 +9,8 @@ PROJECTS=anki                \
 	 xmppcat             \
 	 xscreensaver-toggle \
 	 browser-watch       \
-	 remd
+	 remd                \
+	 rems
 
 
 install: $(patsubst %,install-%,$(PROJECTS))

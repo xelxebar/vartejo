@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#vim: set filetype=sh :
+
+
+ANN=""
+if [[ ${1} == "--ann" ]]; then
+	ANN="-iAnnotate=1"
+	shift
+fi
+
+rem ${ANN} -g ${@} | column -s'.' -t
