@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# vim: filetype=sh :
+
+function rem2notify() {
+	SEPSTR=" . "
+	SUMM=$(echo "${@}" | awk -F"${SEPSTR}" '{print $4}')
+	BODY=$(echo "${@}" | awk -F"${SEPSTR}" '{print $1" | "$2" | "$3}')
+
+	notify-send "${SUMM}" "\n${BODY}"
+}
+
+rem -k"$(declare -f rem2notify); rem2notify %s" -z

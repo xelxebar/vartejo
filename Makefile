@@ -8,7 +8,8 @@ PROJECTS=anki                \
 	 synclient-toggle    \
 	 xmppcat             \
 	 xscreensaver-toggle \
-	 browser-watch
+	 browser-watch       \
+	 remd
 
 
 install: $(patsubst %,install-%,$(PROJECTS))
