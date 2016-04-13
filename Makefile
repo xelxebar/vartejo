@@ -10,7 +10,8 @@ PROJECTS=anki                \
 	 xscreensaver-toggle \
 	 browser-watch       \
 	 remd                \
-	 rems
+	 rems                \
+	 diceware
 
 
 install: $(patsubst %,install-%,$(PROJECTS))
