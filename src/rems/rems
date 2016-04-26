@@ -8,4 +8,4 @@ if [[ ${1} == "--ann" ]]; then
 	shift
 fi
 
-rem ${ANN} -g ${@} | column -s'.' -t
+rem ${ANN} -g ${@} | column -s';' -t
