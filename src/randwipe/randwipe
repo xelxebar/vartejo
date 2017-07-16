@@ -1,11 +1,13 @@
 #! /usr/bin/env sh
 
-function __init(){
-### Module Start
-
-function print_usage()
+_which()
 {
-  cat <<EOF
+	which "${1}" 2>/dev/null
+}
+
+print_usage()
+{
+cat <<EOF
 Usage: ${0} <DEVICE PATH>
 
 ${0} wipes <DEVICE PATH> with bytes from /dev/urandom. Since write access to
@@ -15,43 +17,48 @@ A progress bar tracks the status of the write.
 EOF
 }
 
-function check_args()
+check_deps()
 {
-  if [[ ${#} -eq 0 ]]; then
-    echo "Error: Expected <DEVICE PATH>"
-    echo
-    print_usage
-    exit
-  elif [[ ! -b ${1} ]]; then
-    echo "Error: ${1} does not exist or is not a block device."
-    exit
-  fi
+	for dep in pv dd; do
+		if [ ! -x "$(_which ${dep})" ]; then
+			echo "ERROR: Could not find program ${dep}"
+			exit
+		fi
+	done
 }
 
-function wipe()
+check_args()
 {
-  local DEV=${1}
-  local NUM_BLOCKS=$(fdisk -l ${DEV} | grep 'sectors$' | cut -d' ' -f7)
-  local BLOCK_SIZE=$(fdisk -l ${DEV} | grep '^Sector size' | cut -d' ' -f4)
-  local DISK_SIZE=$(fdisk -l ${DEV} | grep "^Disk ${DEV}" | cut -d' ' -f5)
-
-  openssl enc -aes-256-ctr \
-    -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" \
-    -nosalt </dev/zero \
-    | pv -bartpes ${DISK_SIZE} | dd bs=${BLOCK_SIZE} \
-                                    count=${NUM_BLOCKS} \
-                                    of=${DEV}
+	if [ ${#} -eq 0 ]; then
+		echo "Error: Expected <DEVICE PATH>"
+		echo
+		print_usage
+		exit
+	elif [ ! -b ${1} ]; then
+		echo "Error: ${1} does not exist or is not a block device."
+		exit
+	fi
 }
 
-function main()
+wipe()
 {
-  check_args ${@}
-  wipe ${@}
+	local dev=${1}
+	local nsecs=$(fdisk -l ${dev} | grep 'sectors$' | cut -d' ' -f7)
+	local secsz=$(fdisk -l ${dev} | grep '^Sector size' | cut -d' ' -f4)
+	local disksz=$(fdisk -l ${dev} | grep "^Disk ${dev}" | cut -d' ' -f5)
+
+	</dev/urandom pv --bytes \
+	   --average-rate        \
+	   --rate                \
+	   --timer               \
+	   --progress            \
+	   -eta                  \
+	   --size ${disksz}      \
+	| dd bs=${secsz}         \
+	     count=${nsecs}      \
+	     of=${dev}
 }
 
-main ${@}
-
-### Module End
-}
-__init ${@}
-[[ -n $(typeset -f __init) ]] && unset -f __init
+check_args ${@}
+check_deps
+wipe ${@}
