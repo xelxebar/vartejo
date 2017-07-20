@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 
-obj=$(mktemp -u)
-exe=$(mktemp -u)
+src="${1}"
+obj="$(mktemp -u)"
+exe="$(mktemp -u)"
 
-as "${1}" -o "${obj}"
+as "${src}" -o "${obj}"
 ld "${obj}" -o "${exe}"
 "${exe}"
 
