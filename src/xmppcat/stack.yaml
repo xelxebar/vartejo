@@ -1,8 +1,0 @@
-flags: {}
-packages:
-- '.'
-extra-deps: 
-- pontarius-xmpp-0.5.1
-- stringprep-1.0.0
-- xml-picklers-0.3.6
-resolver: lts-5.0
