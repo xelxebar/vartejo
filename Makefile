@@ -1,30 +1,19 @@
-SRCDIR=$(PWD)/src
-BINDIR=$(PWD)/bin
-PROJECTS=anki                \
-	 chroot-qcow2        \
-	 json-cmd            \
-	 qemu-mac            \
-	 randwipe            \
-	 synclient-toggle    \
-	 xmppcat             \
-	 xscreensaver-toggle \
-	 browser-watch       \
-	 remd                \
-	 rems                \
-	 diceware
+src = $(PWD)/src
+BIN = $(PWD)/bin
+targets      = $(notdir $(wildcard $(src)/*))
+clean-targets = $(patsubst %, clean-%, $(targets))
 
 
-install: $(patsubst %,install-%,$(PROJECTS))
+all: $(targets)
 
-install-%:
-	[[ -f $(BINDIR) ]] || $(MAKE) preinstall
-	$(MAKE) BINDIR=$(BINDIR) -C $(SRCDIR)/$* install
+$(targets): %: | $(BIN)/
+	$(MAKE) BIN=$(BIN) -C $(src)/$* install
 
-preinstall:
-	mkdir -p $(BINDIR)
+$(BIN)/:
+	mkdir -p $(BIN)
 
-clean: $(patsubst %,clean-%,$(PROJECTS))
-	rmdir $(BINDIR)
-	
-clean-%:
-	rm $(BINDIR)/$*
+clean: $(clean-targets)
+	rmdir $(BIN)
+
+$(clean-targets): clean-%:
+	rm $(BIN)/$*

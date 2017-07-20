@@ -1,2 +1,2 @@
 install:
-	stack --local-bin-path=$(BINDIR) install
+	stack --local-bin-path=$(BIN) install

@@ -1,6 +1,6 @@
-BIN=randwipe
+exe=randwipe
 
-install: $(BINDIR)/$(BIN)
+install: $(BIN)/$(exe)
 
-$(BINDIR)/$(BIN): $(BIN)
-	install --mode=755 $(BIN) $(BINDIR)
+$(BIN)/$(exe): $(exe)
+	install --mode=755 $(exe) $(BIN)
