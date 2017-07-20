@@ -1,2 +1,2 @@
 install:
-	stack --local-bin-path $(BINDIR) install
+	stack --install-ghc --local-bin-path $(BIN) install

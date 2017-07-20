@@ -1,2 +1,3 @@
-module TM.Tagger
+module TM.Tagger (someFunc) where
 
+someFunc = putStrLn "not implemented"
