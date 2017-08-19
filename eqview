@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+
+readonly -A setting=(
+	[plot-candlestick-padding-vert-ratio]=0.1
+)
+
+readonly -A error=(
+	[bad-args]=101
+	[bad-cmd]=102
+)
+
+readonly -A call=(
+	[fetch]=fetch_tsv_alphavantage_co_time_series
+	[munge]=prepend_header_tsv_candlestick
+	[plot]=xplot_candlestick
+)
+
+
+apikey()
+{
+	local key="${1}"
+	local -A uid=(
+		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
+	)
+
+	pass show "${uid[${key}]}"
+}
+
+## Fetch JSON data from alphavantage.co
+#
+# @param <1>  API key
+# @param <2>  Stock symbol
+# @param [3]  Function
+# @param [4]  Output size
+# @param [5]  Interval
+# @param [6]  Datatype
+# @stdout     JSON result
+fetch_alphavantage_co_time_series()
+{
+	[[ ${#} -lt 2 ]] && return "${error[bad-args]}"
+	[[ -z "${1}" ]] && return "${error[bad-args]}"
+	[[ -z "${2}" ]] && return "${error[bad-args]}"
+
+	local url='https://www.alphavantage.co'
+	local path="query"
+	local query=""
+
+	local -A function=(
+		[intraday]='TIME_SERIES_INTRADAY'
+		[daily]='TIME_SERIES_DAILY'
+		[daily-adjusted]='TIME_SERIES_DAILY_ADJUSTED'
+		[weekly]='TIME_SERIES_WEEKLY'
+		[monthly]='TIME_SERIES_MONTHLY'
+		[default]="${function[daily]}"
+	)
+	local -A outputsize=(
+		[compact]='compact'
+		[full]='full'
+		[default]="${outputsize[compact]}"
+	)
+	local -A interval=(
+		[1min]='1min'
+		[5min]='5min'
+		[15min]='15min'
+		[30min]='30min'
+		[60min]='60min'
+		[default]="${interval[60min]}"
+	)
+	local -A datatype=(
+		[json]='json'
+		[csv]='csv'
+		[default]="${datatype[json]}"
+	)
+
+	local -A field=(
+	        [apikey]="${1}"
+		[symbol]="${2}"
+	        [function]="${function[${3-default}]}"
+	        [outputsize]="${outputsize[${4-default}]}"
+	        [interval]="${interval[${5-default}]}"
+	        [datatype]="${datatype[${6-default}]}"
+	)
+
+	for f in "${!field[@]}"; do
+		query+="&${f}=${field[${f}]}"
+	done
+	query="${query#&}"
+
+	echo "${field[apikey]}"     \
+	     "${field[symbol]}"     \
+	     "${field[function]}"   \
+	     "${field[outputsize]}" \
+	     "${field[interval]}"   \
+	     "${field[datatype]}"
+	curl --silent "${url}/${path}?${query}"
+}
+
+json2tsv_alphavantage_co_time_series()
+{
+	local apikey symbol function outputsize interval datatype
+	IFS=' ' read -r apikey symbol function outputsize interval datatype
+
+	local -A series_key=(
+		[TIME_SERIES_INTRADAY]="Time Series (${interval})"
+		[TIME_SERIES_DAILY]="Time Series (Daily)"
+		[TIME_SERIES_DAILY_ADJUSTED]="Time Series (Daily)"
+		[TIME_SERIES_WEEKLY]="Weekly Time Series"
+		[TIME_SERIES_MONTHLY]="Monthly Time Series"
+	)
+
+	local -A price_key=(
+		[open]="1. open"
+		[high]="2. high"
+		[low]="3. low"
+		[close]="4. close"
+		[volume]="5. volume"
+	)
+
+	jq -r '."'"${series_key[${function}]}"'"
+	       | to_entries[]
+	       | [ .key
+	         , .value."'"${price_key[open]}"'"
+	         , .value."'"${price_key[high]}"'"
+	         , .value."'"${price_key[low]}"'"
+	         , .value."'"${price_key[close]}"'"
+	         , .value."'"${price_key[volume]}"'" ]
+	       | @tsv' \
+	| tac \
+	| nl --number-width=1
+}
+
+fetch_tsv_alphavantage_co_time_series()
+{
+	local apikey
+	apikey="$(apikey alphavantage.co)"
+
+	fetch_alphavantage_co_time_series "${apikey}" "${@}" \
+	| json2tsv_alphavantage_co_time_series
+}
+
+prepend_header_tsv_candlestick()
+{
+	local low high range count
+	local dat=""
+
+	low=$(getconf INT_MAX)
+	high=$(getconf INT_MIN)
+
+	while IFS= read -r l; do
+		local llow
+		local lhigh
+
+		llow=$(echo "${l}" | cut -d'	' -f5)
+		lhigh=$(echo "${l}" | cut -d'	' -f4)
+
+		if [[ $(bc -l <<<"${llow} < ${low}") -eq 1 ]]; then
+			low=${llow}
+		fi
+		if [[ $(bc -l <<<"${lhigh} > ${high}") -eq 1 ]]; then
+			high=${lhigh}
+		fi
+
+		dat="$(echo -e "${dat}\n${l}")"
+	done
+
+	range=$(bc -l <<<"${high} - ${low}")
+	count=$(tail -1 <<<"${dat}" | cut -d'	' -f1)
+
+	echo "${high}" "${low}" "${range}" "${count}"
+	echo "${dat}"
+}
+
+xplot_candlestick()
+{
+	local pad="${setting[plot-candlestick-padding-vert-ratio]}"
+	local high low range count
+	local xmin xmax ymin ymax
+	IFS=" " read -r high low range count
+	IFS= read -r
+
+	xmin=0
+	xmax=$(( count + 1 ))
+	ymin=$(bc -l <<<"${low}  - ${range} * ${pad}")
+	ymax=$(bc -l <<<"${high} + ${range} * ${pad}")
+
+	gnuplot --persist -e "
+		set datafile separator '\t';
+
+		set xrange [${xmin}:${xmax}];
+		set yrange [${ymin}:${ymax}];
+
+		set palette defined (-1 'red', 1 'green');
+		set cbrange [-1:1];
+		unset colorbox;
+		set style fill solid noborder;
+
+		plot '<cat' using 1:3:5:4:6:(\$6 < \$3 ? -1 : 1)
+		            with candlesticks
+		            palette
+		            notitle;
+	"
+}
+
+cmd_plot()
+{
+	"${call[fetch]}" "${@}" \
+	| "${call[munge]}"      \
+	| "${call[plot]}"
+}
+
+usage()
+{
+	cat <<- EOF
+	Usage: ${0} <security symbol>
+	EOF
+}
+
+
+main()
+{
+	if [[ ${#} -eq 0 ]]; then
+		usage
+		return "${error[bad-cmd]}"
+	fi
+
+	readonly cmd="${1}"
+	shift
+
+	case "${cmd}" in
+		plot) cmd_plot "${@}";;
+		*) usage;;
+	esac
+}
+
+if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
+	main "${@}"
+fi
