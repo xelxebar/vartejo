@@ -211,7 +211,7 @@ munge_tsv_ema()
 		local ema
 
 		meas=$(bc <<<"${meas}*${weight} + 1")
-		sum=$(bc <<<"(${sum}*${weight} + ${close})")
+		sum=$(bc <<<"${sum}*${weight} + ${close}")
 		ema=$(bc <<<"${sum}/${meas}")
 
 		echo -e "${id}\t${date}\t${ema}"
