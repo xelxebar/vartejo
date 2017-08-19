@@ -203,6 +203,51 @@ xplot_candlestick()
 	"
 }
 
+## Line plot of closing prices in ASCII
+#
+# @param [1]  Plot width
+# @param [2]  Plot height
+plot_ascii_linespoints_closings()
+{
+	local pad="${setting[plot-candlestick-padding-vert-ratio]}"
+	local width height
+	local high low range count
+	local xmin xmax ymin ymax
+	IFS=" " read -r high low range count
+	IFS= read -r
+
+	width=${1-$(tput cols)}
+	height=${2-$(tput lines)}
+
+	xmin=0
+	xmax=$(( count + 1 ))
+	ymin=$(bc -l <<<"${low}  - ${range} * ${pad}")
+	ymax=$(bc -l <<<"${high} + ${range} * ${pad}")
+
+	gnuplot --persist -e "
+		set terminal dumb ${width},${height};
+		set datafile separator '\t';
+
+		set xrange [${xmin}:${xmax}];
+		set yrange [${ymin}:${ymax}];
+
+		plot '<cat' using 1:6
+		            with linespoints
+		            notitle;
+	"
+}
+
+apikey()
+{
+	local key="${1}"
+	local -A uid=(
+		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
+	)
+
+	pass show "${uid[${key}]}"
+}
+
+
 cmd_plot()
 {
 	"${call[fetch]}" "${@}" \
