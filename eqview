@@ -3,7 +3,10 @@ set -euo pipefail
 
 
 readonly -A setting=(
-	[plot-candlestick-padding-vert-ratio]=0.1
+	[plot-vert-padding]=0.1
+	[plot-candlestick-neg-color]='red'
+	[plot-candlestick-pos-color]='green'
+	[ema-weight]=0.8
 )
 
 readonly -A tsvcol=(
@@ -14,6 +17,7 @@ readonly -A tsvcol=(
 	[low]=5
 	[close]=6
 	[volume]=7
+	[ema]=3
 )
 
 readonly -A error=(
@@ -21,12 +25,11 @@ readonly -A error=(
 	[bad-cmd]=102
 )
 
-readonly -A call=(
-	[fetch]='fetch_tsv_alphavantage_co_time_series'
-	[munge]='munge_tsv_candlestick'
-	[plot]='plot_x_candlestick'
-)
 
+fetch_tsv_time_series()
+{
+	fetch_tsv_time_series_alphavantage_co "${@}"
+}
 
 ## Fetch JSON data from alphavantage.co
 #
@@ -37,7 +40,7 @@ readonly -A call=(
 # @param [5]  Interval
 # @param [6]  Datatype
 # @stdout     JSON result
-fetch_alphavantage_co_time_series()
+fetch_time_series_alphavantage_co()
 {
 	[[ ${#} -lt 2 ]] && return "${error[bad-args]}"
 	[[ -z "${1}" ]] && return "${error[bad-args]}"
@@ -131,18 +134,32 @@ json2tsv_alphavantage_co_time_series()
 	| nl --number-width=1
 }
 
-fetch_tsv_alphavantage_co_time_series()
+fetch_tsv_time_series_alphavantage_co()
 {
 	local apikey
+	local symbol="${1}"
+	local function="${2-default}"
+	local outputsize="${3-default}"
+	local interval="${4-default}"
 	apikey="$(apikey alphavantage.co)"
 
-	fetch_alphavantage_co_time_series "${apikey}" "${@}" \
+	fetch_time_series_alphavantage_co "${apikey}" \
+	                                  "${symbol}" \
+	                                  "${function}" \
+	                                  "${outputsize}" \
+	                                  "${interval}" \
+	                                  json \
 	| json2tsv_alphavantage_co_time_series
 }
 
-
-munge_tsv_candlestick()
+## Prepend metadata header to TSV data
+#
+# @param <1>  Column that contains data minimum
+# @param <2>  Column that contains data maximum 
+munge_tsv_prepend_header()
 {
+	local mincol="${1}"
+	local maxcol="${2}"
 	local low high range count
 	local dat=""
 
@@ -153,8 +170,8 @@ munge_tsv_candlestick()
 		local llow
 		local lhigh
 
-		llow=$(echo "${l}"  | cut -d$'\t' -f"${tsvcol[low]}")
-		lhigh=$(echo "${l}" | cut -d$'\t' -f"${tsvcol[high]}")
+		llow=$(echo "${l}"  | cut -d$'\t' -f"${mincol}")
+		lhigh=$(echo "${l}" | cut -d$'\t' -f"${maxcol}")
 
 		if [[ $(bc <<<"${llow} < ${low}") -eq 1 ]]; then
 			low=${llow}
@@ -173,18 +190,46 @@ munge_tsv_candlestick()
 	echo "${dat}"
 }
 
+## Flatten price data into single EMA summary column
+#
+# @param <1>  Exponential weight
+munge_tsv_ema()
+{
+	local weight="${1}"
+
+	if [[ $(bc <<<"${weight} <  0") -eq 1 ]] \
+	|| [[ $(bc <<<"${weight} >  1") -eq 1 ]]; then
+		return "${error[bad-arg]}"
+	fi
+
+	local id date open high low sum volume
+	IFS=$'\t' read -r id date open high low sum volume
+	echo -e "${id}\t${date}\t${sum}"
+
+	local meas=1
+	while IFS=$'\t' read -r id date open high low close volume; do
+		local ema
+
+		meas=$(bc <<<"${meas}*${weight} + 1")
+		sum=$(bc <<<"(${sum}*${weight} + ${close})")
+		ema=$(bc <<<"${sum}/${meas}")
+
+		echo -e "${id}\t${date}\t${ema}"
+	done
+}
+
 
 ## Colorized candlestick plot in X11
 #
 # @param [1]  Color for losses
 # @param [2]  Color for gains
-plot_x_candlestick()
+plot_candlestick()
 {
 	local negcolor="${1-red}"
 	local poscolor="${2-green}"
 	local negval=-1
 	local posval=1
-	local pad="${setting[plot-candlestick-padding-vert-ratio]}"
+	local pad="${setting[plot-vert-padding]}"
 	local high low range count
 	local xmin xmax ymin ymax
 	IFS=" " read -r high low range count
@@ -221,21 +266,21 @@ plot_x_candlestick()
 	"
 }
 
-## Line plot of closing prices in ASCII
+## ASCII line plot
 #
-# @param [1]  Plot width
-# @param [2]  Plot height
-plot_ascii_linespoints_closings()
+# Draw an ASCII line plot. Defaults to closing prices from standard TSV
+#
+# @param [1]  Plot x-axis column
+# @param [2]  Plot y-axis column
+plot_linespoints()
 {
-	local pad="${setting[plot-candlestick-padding-vert-ratio]}"
-	local width height
+	local xcol=${1-${tsvcol[id]}}
+	local ycol=${2-${tsvcol[close]}}
+	local pad="${setting[plot-vert-padding]}"
 	local high low range count
 	local xmin xmax ymin ymax
 	IFS=" " read -r high low range count
 	IFS= read -r
-
-	width=${1-$(tput cols)}
-	height=${2-$(tput lines)}
 
 	xmin=0
 	xmax=$(( count + 1 ))
@@ -243,13 +288,12 @@ plot_ascii_linespoints_closings()
 	ymax=$(bc <<<"${high} + ${range} * ${pad}")
 
 	gnuplot --persist -e "
-		set terminal dumb ${width},${height};
 		set datafile separator '\t';
 
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
 
-		plot '<cat' using ${tsvcol[id]} : ${tsvcol[close]}
+		plot '<cat' using ${xcol} : ${ycol}
 		            with linespoints
 		            notitle;
 	"
@@ -266,11 +310,21 @@ apikey()
 }
 
 
-cmd_plot()
+cmd_candle()
 {
-	"${call[fetch]}" "${@}" \
-	| "${call[munge]}"      \
-	| "${call[plot]}"
+	fetch_tsv_time_series "${@}" \
+	| munge_tsv_prepend_header "${tsvcol[low]}" "${tsvcol[high]}" \
+	| plot_candlestick "${setting[plot-candlestick-neg-color]}" \
+	                     "${setting[plot-candlestick-pos-color]}" 
+}
+
+cmd_ema()
+{
+	fetch_tsv_time_series "${@}" \
+	| munge_tsv_ema "${setting[ema-weight]}" \
+	| munge_tsv_prepend_header "${tsvcol[ema]}" "${tsvcol[ema]}" \
+	| plot_linespoints "${tsvcol[id]}" "${tsvcol[ema]}"
+
 }
 
 usage()
@@ -292,7 +346,8 @@ main()
 	shift
 
 	case "${cmd}" in
-		plot) cmd_plot "${@}";;
+		candle) cmd_candle "${@}";;
+		ema)    cmd_ema "${@}";;
 		*) usage;;
 	esac
 }
