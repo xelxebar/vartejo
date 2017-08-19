@@ -6,27 +6,27 @@ readonly -A setting=(
 	[plot-candlestick-padding-vert-ratio]=0.1
 )
 
+readonly -A tsvcol=(
+	[id]=1
+	[date]=2
+	[open]=3
+	[high]=4
+	[low]=5
+	[close]=6
+	[volume]=7
+)
+
 readonly -A error=(
 	[bad-args]=101
 	[bad-cmd]=102
 )
 
 readonly -A call=(
-	[fetch]=fetch_tsv_alphavantage_co_time_series
-	[munge]=prepend_header_tsv_candlestick
-	[plot]=xplot_candlestick
+	[fetch]='fetch_tsv_alphavantage_co_time_series'
+	[munge]='munge_tsv_candlestick'
+	[plot]='plot_x_candlestick'
 )
 
-
-apikey()
-{
-	local key="${1}"
-	local -A uid=(
-		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
-	)
-
-	pass show "${uid[${key}]}"
-}
 
 ## Fetch JSON data from alphavantage.co
 #
@@ -140,7 +140,8 @@ fetch_tsv_alphavantage_co_time_series()
 	| json2tsv_alphavantage_co_time_series
 }
 
-prepend_header_tsv_candlestick()
+
+munge_tsv_candlestick()
 {
 	local low high range count
 	local dat=""
@@ -152,28 +153,37 @@ prepend_header_tsv_candlestick()
 		local llow
 		local lhigh
 
-		llow=$(echo "${l}" | cut -d'	' -f5)
-		lhigh=$(echo "${l}" | cut -d'	' -f4)
+		llow=$(echo "${l}"  | cut -d$'\t' -f"${tsvcol[low]}")
+		lhigh=$(echo "${l}" | cut -d$'\t' -f"${tsvcol[high]}")
 
-		if [[ $(bc -l <<<"${llow} < ${low}") -eq 1 ]]; then
+		if [[ $(bc <<<"${llow} < ${low}") -eq 1 ]]; then
 			low=${llow}
 		fi
-		if [[ $(bc -l <<<"${lhigh} > ${high}") -eq 1 ]]; then
+		if [[ $(bc <<<"${lhigh} > ${high}") -eq 1 ]]; then
 			high=${lhigh}
 		fi
 
 		dat="$(echo -e "${dat}\n${l}")"
 	done
 
-	range=$(bc -l <<<"${high} - ${low}")
-	count=$(tail -1 <<<"${dat}" | cut -d'	' -f1)
+	range=$(bc <<<"${high} - ${low}")
+	count=$(tail -1 <<<"${dat}" | cut -d$'\t' -f1)
 
 	echo "${high}" "${low}" "${range}" "${count}"
 	echo "${dat}"
 }
 
-xplot_candlestick()
+
+## Colorized candlestick plot in X11
+#
+# @param [1]  Color for losses
+# @param [2]  Color for gains
+plot_x_candlestick()
 {
+	local negcolor="${1-red}"
+	local poscolor="${2-green}"
+	local negval=-1
+	local posval=1
 	local pad="${setting[plot-candlestick-padding-vert-ratio]}"
 	local high low range count
 	local xmin xmax ymin ymax
@@ -182,8 +192,8 @@ xplot_candlestick()
 
 	xmin=0
 	xmax=$(( count + 1 ))
-	ymin=$(bc -l <<<"${low}  - ${range} * ${pad}")
-	ymax=$(bc -l <<<"${high} + ${range} * ${pad}")
+	ymin=$(bc <<<"${low}  - ${range} * ${pad}")
+	ymax=$(bc <<<"${high} + ${range} * ${pad}")
 
 	gnuplot --persist -e "
 		set datafile separator '\t';
@@ -191,12 +201,20 @@ xplot_candlestick()
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
 
-		set palette defined (-1 'red', 1 'green');
-		set cbrange [-1:1];
+		set palette defined ( ${negval} '${negcolor}'
+		                    , ${posval} '${poscolor}' );
+		set cbrange [${negval}:${posval}];
 		unset colorbox;
 		set style fill solid noborder;
 
-		plot '<cat' using 1:3:5:4:6:(\$6 < \$3 ? -1 : 1)
+		plot '<cat' using ${tsvcol[id]}
+		                  :${tsvcol[open]}
+		                  :${tsvcol[low]}
+		                  :${tsvcol[high]}
+		                  :${tsvcol[close]}
+		                  :(\$${tsvcol[close]} < \$${tsvcol[open]}
+		                    ? ${negval}
+		                    : ${posval})
 		            with candlesticks
 		            palette
 		            notitle;
@@ -221,8 +239,8 @@ plot_ascii_linespoints_closings()
 
 	xmin=0
 	xmax=$(( count + 1 ))
-	ymin=$(bc -l <<<"${low}  - ${range} * ${pad}")
-	ymax=$(bc -l <<<"${high} + ${range} * ${pad}")
+	ymin=$(bc <<<"${low}  - ${range} * ${pad}")
+	ymax=$(bc <<<"${high} + ${range} * ${pad}")
 
 	gnuplot --persist -e "
 		set terminal dumb ${width},${height};
@@ -231,7 +249,7 @@ plot_ascii_linespoints_closings()
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
 
-		plot '<cat' using 1:6
+		plot '<cat' using ${tsvcol[id]} : ${tsvcol[close]}
 		            with linespoints
 		            notitle;
 	"
