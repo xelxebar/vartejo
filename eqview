@@ -7,9 +7,10 @@ readonly -A setting=(
 	[plot-candlestick-neg-color]='red'
 	[plot-candlestick-pos-color]='green'
 	[ema-weight]=0.8
+	[csv-separator]=','
 )
 
-readonly -A tsvcol=(
+readonly -A csvcol=(
 	[id]=1
 	[date]=2
 	[open]=3
@@ -26,9 +27,30 @@ readonly -A error=(
 )
 
 
-fetch_tsv_time_series()
+## Fetch and postprocess CSV data from alphavantage.co
+#
+# @param <1>  Stock symbol
+# @param [2]  Function
+# @param [3]  Output size
+# @param [4]  Interval
+# @param [5]  CSV separator
+fetch_csv_time_series_alphavantage_co()
 {
-	fetch_tsv_time_series_alphavantage_co "${@}"
+	local apikey
+	local symbol="${1}"
+	local function="${2-default}"
+	local outputsize="${3-default}"
+	local interval="${4-default}"
+	local sep="${5-${setting[csv-separator]}}"
+	apikey="$(apikey alphavantage.co)"
+
+	fetch_time_series_alphavantage_co "${apikey}" \
+	                                  "${symbol}" \
+	                                  "${function}" \
+	                                  "${outputsize}" \
+	                                  "${interval}" \
+	                                  csv \
+	| postfetch_csv_alphavantage_co_time_series "${sep}"
 }
 
 ## Fetch JSON data from alphavantage.co
@@ -91,75 +113,38 @@ fetch_time_series_alphavantage_co()
 	done
 	query="${query#&}"
 
-	echo "${field[apikey]}"     \
-	     "${field[symbol]}"     \
-	     "${field[function]}"   \
-	     "${field[outputsize]}" \
-	     "${field[interval]}"   \
-	     "${field[datatype]}"
 	curl --silent "${url}/${path}?${query}"
 }
 
-json2tsv_alphavantage_co_time_series()
+## Vendor-independent function for fetching data
+fetch_csv_time_series()
 {
-	local apikey symbol function outputsize interval datatype
-	IFS=' ' read -r apikey symbol function outputsize interval datatype
-
-	local -A series_key=(
-		[TIME_SERIES_INTRADAY]="Time Series (${interval})"
-		[TIME_SERIES_DAILY]="Time Series (Daily)"
-		[TIME_SERIES_DAILY_ADJUSTED]="Time Series (Daily)"
-		[TIME_SERIES_WEEKLY]="Weekly Time Series"
-		[TIME_SERIES_MONTHLY]="Monthly Time Series"
-	)
-
-	local -A price_key=(
-		[open]="1. open"
-		[high]="2. high"
-		[low]="3. low"
-		[close]="4. close"
-		[volume]="5. volume"
-	)
-
-	jq -r '."'"${series_key[${function}]}"'"
-	       | to_entries[]
-	       | [ .key
-	         , .value."'"${price_key[open]}"'"
-	         , .value."'"${price_key[high]}"'"
-	         , .value."'"${price_key[low]}"'"
-	         , .value."'"${price_key[close]}"'"
-	         , .value."'"${price_key[volume]}"'" ]
-	       | @tsv' \
-	| tac \
-	| nl --number-width=1
+	fetch_csv_time_series_alphavantage_co "${@}"
 }
 
-fetch_tsv_time_series_alphavantage_co()
+## Postprocess alphavantage.co CSV result
+#
+# @param [1]  CSV separator
+postfetch_csv_alphavantage_co_time_series()
 {
-	local apikey
-	local symbol="${1}"
-	local function="${2-default}"
-	local outputsize="${3-default}"
-	local interval="${4-default}"
-	apikey="$(apikey alphavantage.co)"
+	local sep="${1-${setting[csv-separator]}}"
+	IFS= read -r
 
-	fetch_time_series_alphavantage_co "${apikey}" \
-	                                  "${symbol}" \
-	                                  "${function}" \
-	                                  "${outputsize}" \
-	                                  "${interval}" \
-	                                  json \
-	| json2tsv_alphavantage_co_time_series
+	sed "s/\\r$//;
+	     s/,/${sep}/g" \
+	| nl --number-width=1 --number-separator=','
 }
 
 ## Prepend metadata header to TSV data
 #
 # @param <1>  Column that contains data minimum
 # @param <2>  Column that contains data maximum 
-munge_tsv_prepend_header()
+# @param [3]  CSV separator
+munge_csv_prepend_header()
 {
 	local mincol="${1}"
 	local maxcol="${2}"
+	local sep="${3-${setting[csv-separator]}}"
 	local low high range count
 	local dat=""
 
@@ -170,8 +155,8 @@ munge_tsv_prepend_header()
 		local llow
 		local lhigh
 
-		llow=$(echo "${l}"  | cut -d$'\t' -f"${mincol}")
-		lhigh=$(echo "${l}" | cut -d$'\t' -f"${maxcol}")
+		llow=$(echo "${l}"  | cut -d"${sep}" -f"${mincol}")
+		lhigh=$(echo "${l}" | cut -d"${sep}" -f"${maxcol}")
 
 		if [[ $(bc <<<"${llow} < ${low}") -eq 1 ]]; then
 			low=${llow}
@@ -184,7 +169,7 @@ munge_tsv_prepend_header()
 	done
 
 	range=$(bc <<<"${high} - ${low}")
-	count=$(tail -1 <<<"${dat}" | cut -d$'\t' -f1)
+	count=$(tail -1 <<<"${dat}" | cut -d"${sep}" -f1)
 
 	echo "${high}" "${low}" "${range}" "${count}"
 	echo "${dat}"
@@ -193,9 +178,11 @@ munge_tsv_prepend_header()
 ## Flatten price data into single EMA summary column
 #
 # @param <1>  Exponential weight
-munge_tsv_ema()
+# @param [3]  CSV separator
+munge_csv_ema()
 {
 	local weight="${1}"
+	local sep="${2-${setting[csv-separator]}}"
 
 	if [[ $(bc <<<"${weight} <  0") -eq 1 ]] \
 	|| [[ $(bc <<<"${weight} >  1") -eq 1 ]]; then
@@ -203,18 +190,18 @@ munge_tsv_ema()
 	fi
 
 	local id date open high low sum volume
-	IFS=$'\t' read -r id date open high low sum volume
-	echo -e "${id}\t${date}\t${sum}"
+	IFS="${sep}" read -r id date open high low sum volume
+	echo -e "${id}${sep}${date}${sep}${sum}"
 
 	local meas=1
-	while IFS=$'\t' read -r id date open high low close volume; do
+	while IFS="${sep}" read -r id date open high low close volume; do
 		local ema
 
 		meas=$(bc <<<"${meas}*${weight} + 1")
 		sum=$(bc <<<"${sum}*${weight} + ${close}")
 		ema=$(bc <<<"${sum}/${meas}")
 
-		echo -e "${id}\t${date}\t${ema}"
+		echo -e "${id}${sep}${date}${sep}${ema}"
 	done
 }
 
@@ -223,13 +210,16 @@ munge_tsv_ema()
 #
 # @param [1]  Color for losses
 # @param [2]  Color for gains
+# @param [3]  Fraction of visual padding on top and bottom of graph
+# @param [4]  CSV separator
 plot_candlestick()
 {
 	local negcolor="${1-red}"
 	local poscolor="${2-green}"
+	local pad="${3-0}"
+	local sep="${4-${setting[csv-separator]}}"
 	local negval=-1
 	local posval=1
-	local pad="${setting[plot-vert-padding]}"
 	local high low range count
 	local xmin xmax ymin ymax
 	IFS=" " read -r high low range count
@@ -241,7 +231,7 @@ plot_candlestick()
 	ymax=$(bc <<<"${high} + ${range} * ${pad}")
 
 	gnuplot --persist -e "
-		set datafile separator '\t';
+		set datafile separator '${sep}';
 
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
@@ -252,12 +242,12 @@ plot_candlestick()
 		unset colorbox;
 		set style fill solid noborder;
 
-		plot '<cat' using ${tsvcol[id]}
-		                  :${tsvcol[open]}
-		                  :${tsvcol[low]}
-		                  :${tsvcol[high]}
-		                  :${tsvcol[close]}
-		                  :(\$${tsvcol[close]} < \$${tsvcol[open]}
+		plot '<cat' using ${csvcol[id]}
+		                  :${csvcol[open]}
+		                  :${csvcol[low]}
+		                  :${csvcol[high]}
+		                  :${csvcol[close]}
+		                  :(\$${csvcol[close]} < \$${csvcol[open]}
 		                    ? ${negval}
 		                    : ${posval})
 		            with candlesticks
@@ -272,11 +262,14 @@ plot_candlestick()
 #
 # @param [1]  Plot x-axis column
 # @param [2]  Plot y-axis column
+# @param [3]  Fraction of visual padding on top and bottom of graph
+# @param [3]  CSV separator
 plot_linespoints()
 {
-	local xcol=${1-${tsvcol[id]}}
-	local ycol=${2-${tsvcol[close]}}
-	local pad="${setting[plot-vert-padding]}"
+	local xcol=${1-${csvcol[id]}}
+	local ycol=${2-${csvcol[close]}}
+	local pad="${3-0}"
+	local sep="${4-${setting[csv-separator]}}"
 	local high low range count
 	local xmin xmax ymin ymax
 	IFS=" " read -r high low range count
@@ -288,7 +281,7 @@ plot_linespoints()
 	ymax=$(bc <<<"${high} + ${range} * ${pad}")
 
 	gnuplot --persist -e "
-		set datafile separator '\t';
+		set datafile separator '${sep}';
 
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
@@ -298,6 +291,7 @@ plot_linespoints()
 		            notitle;
 	"
 }
+
 
 apikey()
 {
@@ -312,19 +306,20 @@ apikey()
 
 cmd_candle()
 {
-	fetch_tsv_time_series "${@}" \
-	| munge_tsv_prepend_header "${tsvcol[low]}" "${tsvcol[high]}" \
+	fetch_csv_time_series "${@}" \
+	| munge_csv_prepend_header "${csvcol[low]}" "${csvcol[high]}" \
 	| plot_candlestick "${setting[plot-candlestick-neg-color]}" \
-	                     "${setting[plot-candlestick-pos-color]}" 
+	                   "${setting[plot-candlestick-pos-color]}" \
+	                   "${setting[plot-vert-padding]}"
 }
 
 cmd_ema()
 {
-	fetch_tsv_time_series "${@}" \
-	| munge_tsv_ema "${setting[ema-weight]}" \
-	| munge_tsv_prepend_header "${tsvcol[ema]}" "${tsvcol[ema]}" \
-	| plot_linespoints "${tsvcol[id]}" "${tsvcol[ema]}"
-
+	fetch_csv_time_series "${@}" \
+	| munge_csv_ema "${setting[ema-weight]}" \
+	| munge_csv_prepend_header "${csvcol[ema]}" "${csvcol[ema]}" \
+	| plot_linespoints "${csvcol[id]}" "${csvcol[ema]}" \
+	                   "${setting[plot-vert-padding]}"
 }
 
 usage()
@@ -348,6 +343,7 @@ main()
 	case "${cmd}" in
 		candle) cmd_candle "${@}";;
 		ema)    cmd_ema "${@}";;
+		_debug) "${@}";;
 		*) usage;;
 	esac
 }
