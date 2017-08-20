@@ -363,14 +363,21 @@ plot_dgrid3d()
 	local zcol="${3}"
 	local meshsz="${4-${setting[plot-dgrid3d-mesh-size]}}"
 	local sep="${5-${setting[csv-separator]}}"
+	local dat
 
-	ifstdin gnuplot --persist -e "
+	dat=$(mktemp)
+	trap "rm ${dat}" EXIT
+	cat >"${dat}"
+
+	gnuplot --persist -e "
 		set datafile separator '${sep}';
 		set dgrid3d ${meshsz}, ${meshsz};
 
-		splot '<cat' using ${xcol} : ${ycol} : ${zcol}
+		splot '${dat}' using ${xcol} : ${ycol} : ${zcol}
 		             with lines
 		             notitle;
+
+		pause mouse close
 	"
 }
 
