@@ -1,0 +1,454 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+
+readonly -A setting=(
+	[plot-vert-padding]=0.1
+	[plot-candlestick-neg-color]='red'
+	[plot-candlestick-pos-color]='green'
+	[plot-dgrid3d-mesh-size]=100
+	[ema-weight]=0.8
+	[ema-min]=0.0
+	[ema-max]=1.0
+	[ema-bin-count]=100
+	[csv-separator]=','
+)
+
+readonly -A csvcol=(
+	[id]=1
+	[date]=2
+	[open]=3
+	[high]=4
+	[low]=5
+	[close]=6
+	[volume]=7
+	[weight]=3
+	[ema]=4
+)
+
+readonly -A error=(
+	[bad-args]=101
+	[bad-cmd]=102
+	[stdin-empty]=201
+)
+
+
+apikey()
+{
+	local key="${1}"
+	local -A uid=(
+		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
+	)
+
+	pass show "${uid[${key}]}"
+}
+
+ifstdin()
+{
+	local stdin_first_byte
+
+	stdin_first_byte=$( dd bs=1 count=1 2>/dev/null \
+	                  | od --format=o1 --address-radix=n \
+	                  | sed 's/^\s\+//' )
+
+	if [[ -z "${stdin_first_byte}" ]]; then
+		return "${error[stdin-empty]}"
+	else
+		( printf '%b' "\\${stdin_first_byte}"
+		  cat ) \
+		| "${@}"
+	fi
+}
+
+
+## Fetch and postprocess CSV data from alphavantage.co
+#
+# @param <1>  Stock symbol
+# @param [2]  Function
+# @param [3]  Output size
+# @param [4]  Interval
+# @param [5]  CSV separator
+fetch_csv_time_series_alphavantage_co()
+{
+	local apikey
+	local symbol="${1}"
+	local function="${2-default}"
+	local outputsize="${3-default}"
+	local interval="${4-default}"
+	local sep="${5-${setting[csv-separator]}}"
+	apikey="$(apikey alphavantage.co)"
+
+	fetch_time_series_alphavantage_co "${apikey}" \
+	                                  "${symbol}" \
+	                                  "${function}" \
+	                                  "${outputsize}" \
+	                                  "${interval}" \
+	                                  csv \
+	| postfetch_csv_alphavantage_co_time_series "${sep}"
+}
+
+## Fetch JSON data from alphavantage.co
+#
+# @param <1>  API key
+# @param <2>  Stock symbol
+# @param [3]  Function
+# @param [4]  Output size
+# @param [5]  Interval
+# @param [6]  Datatype
+# @stdout     JSON result
+fetch_time_series_alphavantage_co()
+{
+	[[ ${#} -lt 2 ]] && return "${error[bad-args]}"
+	[[ -z "${1}" ]] && return "${error[bad-args]}"
+	[[ -z "${2}" ]] && return "${error[bad-args]}"
+
+	local url='https://www.alphavantage.co'
+	local path="query"
+	local query=""
+
+	local -A function=(
+		[intraday]='TIME_SERIES_INTRADAY'
+		[daily]='TIME_SERIES_DAILY'
+		[daily-adjusted]='TIME_SERIES_DAILY_ADJUSTED'
+		[weekly]='TIME_SERIES_WEEKLY'
+		[monthly]='TIME_SERIES_MONTHLY'
+		[default]="${function[daily]}"
+	)
+	local -A outputsize=(
+		[compact]='compact'
+		[full]='full'
+		[default]="${outputsize[compact]}"
+	)
+	local -A interval=(
+		[1min]='1min'
+		[5min]='5min'
+		[15min]='15min'
+		[30min]='30min'
+		[60min]='60min'
+		[default]="${interval[60min]}"
+	)
+	local -A datatype=(
+		[json]='json'
+		[csv]='csv'
+		[default]="${datatype[json]}"
+	)
+
+	local -A field=(
+	        [apikey]="${1}"
+		[symbol]="${2}"
+	        [function]="${function[${3-default}]}"
+	        [outputsize]="${outputsize[${4-default}]}"
+	        [interval]="${interval[${5-default}]}"
+	        [datatype]="${datatype[${6-default}]}"
+	)
+
+	for f in "${!field[@]}"; do
+		query+="&${f}=${field[${f}]}"
+	done
+	query="${query#&}"
+
+	curl --silent "${url}/${path}?${query}"
+}
+
+## Vendor-independent function for fetching data
+fetch_csv_time_series()
+{
+	fetch_csv_time_series_alphavantage_co "${@}"
+}
+
+## Postprocess alphavantage.co CSV result
+#
+# @param [1]  CSV separator
+postfetch_csv_alphavantage_co_time_series()
+{
+	local sep="${1-${setting[csv-separator]}}"
+	IFS= read -r
+
+	sed "s/\\r$//;
+	     s/,/${sep}/g" \
+	| nl --number-width=1 --number-separator=','
+}
+
+## Prepend metadata header to TSV data
+#
+# @param <1>  Column that contains data minimum
+# @param <2>  Column that contains data maximum 
+# @param [3]  CSV separator
+munge_csv_prepend_header()
+{
+	local mincol="${1}"
+	local maxcol="${2}"
+	local sep="${3-${setting[csv-separator]}}"
+	local low high range count
+	local dat=""
+
+	low=$(getconf INT_MAX)
+	high=$(getconf INT_MIN)
+
+	while IFS= read -r l; do
+		local llow
+		local lhigh
+
+		llow=$(echo "${l}"  | cut -d"${sep}" -f"${mincol}")
+		lhigh=$(echo "${l}" | cut -d"${sep}" -f"${maxcol}")
+
+		if [[ $(bc <<<"${llow} < ${low}") -eq 1 ]]; then
+			low=${llow}
+		fi
+		if [[ $(bc <<<"${lhigh} > ${high}") -eq 1 ]]; then
+			high=${lhigh}
+		fi
+
+		dat="$(echo -e "${dat}\n${l}")"
+	done
+
+	range=$(bc <<<"${high} - ${low}")
+	count=$(tail -1 <<<"${dat}" | cut -d"${sep}" -f1)
+
+	echo "${high}" "${low}" "${range}" "${count}"
+	echo "${dat}"
+}
+
+## Generate EMA column(s) from input column
+#
+# @params <1, ..>  Exponential weight(s)
+munge_csv_emas()
+{
+	local -a weight=("${@}")
+	local sep="${setting[csv-separator]}"
+
+	local w
+	for w in "${weight[@]}"; do
+		if [[ $(bc <<<"${w} <  0") -eq 1 ]] \
+		|| [[ $(bc <<<"${w} >  1") -eq 1 ]]; then
+			return "${error[bad-arg]}"
+		fi
+	done
+
+	local id date open high low close volume
+	IFS="${sep}" read -r id date open high low close volume
+
+	local -a sum=()
+	local -a meas=()
+	for w in "${weight[@]}"; do
+		sum+=("${close}")
+		meas+=(1)
+		echo -e "${id}${sep}${date}${sep}${w}${sep}${close}"
+	done
+
+	while IFS="${sep}" read -r id date open high low close volume; do
+		local -a ema=()
+		local bcmeas=""
+		local bcsum=""
+		local bcema=""
+
+		local i
+		for i in $(seq 0 $(( ${#weight[@]} - 1 ))); do
+			bcmeas+="${meas[i]} * ${weight[i]} + 1;"
+			bcsum+="${sum[i]} * ${weight[i]} + ${close};"
+			bcema+="${sum[i]}/${meas[i]};"
+		done
+
+		meas=( $(bc <<<"${bcmeas}") )
+		sum=( $(bc <<<"${bcsum}") )
+		ema=( $(bc <<<"${bcema}") )
+
+		for i in $(seq 0 $(( "${#ema[@]}" - 1 ))); do
+			printf '%b%b%b%b%b%b%b\n' "${id}" \
+			                 "${sep}" "${date}" \
+			                 "${sep}" "${weight[i]}" \
+			                 "${sep}" "${ema[i]}"
+		done
+	done
+}
+
+
+## Colorized candlestick plot in X11
+#
+# @param [1]  Color for losses
+# @param [2]  Color for gains
+# @param [3]  Fraction of visual padding on top and bottom of graph
+# @param [4]  CSV separator
+plot_candlestick()
+{
+	local negcolor="${1-red}"
+	local poscolor="${2-green}"
+	local pad="${3-0}"
+	local sep="${4-${setting[csv-separator]}}"
+	local negval=-1
+	local posval=1
+	local high low range count
+	local xmin xmax ymin ymax
+	IFS=" " read -r high low range count
+	IFS= read -r
+
+	xmin=0
+	xmax=$(( count + 1 ))
+	ymin=$(bc <<<"${low}  - ${range} * ${pad}")
+	ymax=$(bc <<<"${high} + ${range} * ${pad}")
+
+	ifstdin gnuplot --persist -e "
+		set datafile separator '${sep}';
+
+		set xrange [${xmin}:${xmax}];
+		set yrange [${ymin}:${ymax}];
+
+		set palette defined ( ${negval} '${negcolor}'
+		                    , ${posval} '${poscolor}' );
+		set cbrange [${negval}:${posval}];
+		unset colorbox;
+		set style fill solid noborder;
+
+		plot '<cat' using ${csvcol[id]}
+		                  :${csvcol[open]}
+		                  :${csvcol[low]}
+		                  :${csvcol[high]}
+		                  :${csvcol[close]}
+		                  :(\$${csvcol[close]} < \$${csvcol[open]}
+		                    ? ${negval}
+		                    : ${posval})
+		            with candlesticks
+		            palette
+		            notitle;
+	"
+}
+
+## ASCII line plot
+#
+# Draw an ASCII line plot. Defaults to closing prices from standard TSV
+#
+# @param [1]  Plot x-axis column
+# @param [2]  Plot y-axis column
+# @param [3]  Fraction of visual padding on top and bottom of graph
+# @param [3]  CSV separator
+plot_linespoints()
+{
+	local xcol=${1-${csvcol[id]}}
+	local ycol=${2-${csvcol[close]}}
+	local pad="${3-0}"
+	local sep="${4-${setting[csv-separator]}}"
+	local high low range count
+	local xmin xmax ymin ymax
+	IFS=" " read -r high low range count
+	IFS= read -r
+
+	xmin=0
+	xmax=$(( count + 1 ))
+	ymin=$(bc <<<"${low}  - ${range} * ${pad}")
+	ymax=$(bc <<<"${high} + ${range} * ${pad}")
+
+	ifstdin gnuplot --persist -e "
+		set datafile separator '${sep}';
+
+		set xrange [${xmin}:${xmax}];
+		set yrange [${ymin}:${ymax}];
+
+		plot '<cat' using ${xcol} : ${ycol}
+		            with linespoints
+		            notitle;
+	"
+}
+
+## 3D Surface plot
+#
+# @param <1>  Plot x-axis column
+# @param <2>  Plot y-axis column
+# @param <3>  Plot z-axis column
+# @param [4]  Plot mesh size
+# @param [5]  CSV separator
+plot_dgrid3d()
+{
+	local xcol="${1}"
+	local ycol="${2}"
+	local zcol="${3}"
+	local meshsz="${4-${setting[plot-dgrid3d-mesh-size]}}"
+	local sep="${5-${setting[csv-separator]}}"
+	local dat
+
+	dat=$(mktemp)
+	trap "rm ${dat}" EXIT
+	cat >"${dat}"
+
+	gnuplot --persist -e "
+		set datafile separator '${sep}';
+		set dgrid3d ${meshsz}, ${meshsz};
+
+		splot '${dat}' using ${xcol} : ${ycol} : ${zcol}
+		             with lines
+		             notitle;
+
+		pause mouse close
+	"
+}
+
+
+cmd_candle()
+{
+	fetch_csv_time_series "${@}" \
+	| munge_csv_prepend_header "${csvcol[low]}" "${csvcol[high]}" \
+	| plot_candlestick "${setting[plot-candlestick-neg-color]}" \
+	                   "${setting[plot-candlestick-pos-color]}" \
+	                   "${setting[plot-vert-padding]}"
+}
+
+cmd_ema()
+{
+	fetch_csv_time_series "${@}" \
+	| munge_csv_emas "${setting[ema-weight]}" \
+	| munge_csv_prepend_header "${csvcol[ema]}" "${csvcol[ema]}" \
+	| plot_linespoints "${csvcol[id]}" "${csvcol[ema]}" \
+	                   "${setting[plot-vert-padding]}"
+}
+
+cmd_emas()
+{
+	local n="${setting[ema-bin-count]}"
+	local max="${setting[ema-max]}"
+	local min="${setting[ema-min]}"
+	local -a weights=()
+	local d
+
+	d=$(bc <<<"(${max} - ${min})/${n}")
+
+	local i
+	for i in $(seq 0 "${n}"); do
+		local w
+		w=$(bc <<<"${min} + ${i}*${d}")
+		weights+=("${w}")
+	done
+
+	fetch_csv_time_series "${@}" \
+	| munge_csv_emas "${weights[@]}" \
+	| plot_dgrid3d "${csvcol[id]}" "${csvcol[weight]}" "${csvcol[ema]}" 
+}
+
+usage()
+{
+	cat <<- EOF
+	Usage: ${0} <security symbol>
+	EOF
+}
+
+
+main()
+{
+	if [[ ${#} -eq 0 ]]; then
+		usage
+		return "${error[bad-cmd]}"
+	fi
+
+	readonly cmd="${1}"
+	shift
+
+	case "${cmd}" in
+		candle) cmd_candle "${@}";;
+		ema)    cmd_ema "${@}";;
+		emas)   cmd_emas "${@}";;
+		_debug) "${@}";;
+		*) usage;;
+	esac
+}
+
+if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
+	main "${@}"
+fi
