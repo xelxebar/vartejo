@@ -425,7 +425,20 @@ cmd_emas()
 usage()
 {
 	cat <<- EOF
-	Usage: ${0} <security symbol>
+	Usage: $(basename ${0}) <command> <command args>
+
+	Commands
+
+	    candle <symbol> [function] [output size] [interval]
+	    ema <symbol> [function] [output size] [interval]
+	    emas candle <symbol> [function] [output size] [interval]
+
+	Command Args
+
+	    function = < intraday | daily | daily-adjusted | weekly | monthly >
+	    outputsize = < compact | full >
+	    interval = < 1min | 5min | 15min | 30min | 60min >
+
 	EOF
 }
 
