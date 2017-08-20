@@ -8,6 +8,9 @@ readonly -A setting=(
 	[plot-candlestick-pos-color]='green'
 	[plot-dgrid3d-mesh-size]=50
 	[ema-weight]=0.8
+	[ema-min]=0.0
+	[ema-max]=1.0
+	[ema-bin-count]=10
 	[csv-separator]=','
 )
 
@@ -26,6 +29,7 @@ readonly -A csvcol=(
 readonly -A error=(
 	[bad-args]=101
 	[bad-cmd]=102
+	[bad-data]=201
 )
 
 
@@ -359,6 +363,28 @@ cmd_ema()
 	                   "${setting[plot-vert-padding]}"
 }
 
+cmd_emas()
+{
+	local n="${setting[ema-bin-count]}"
+	local max="${setting[ema-max]}"
+	local min="${setting[ema-min]}"
+	local -a weights=()
+	local d
+
+	d=$(bc <<<"(${max} - ${min})/${n}")
+
+	local i
+	for i in $(seq 0 "$(( n - 1 ))"); do
+		local w
+		w=$(bc <<<"${min} + ${i}*${d}")
+		weights+=("${w}")
+	done
+
+	fetch_csv_time_series "${@}" \
+	| munge_csv_emas "${weights[@]}" \
+	| plot_dgrid3d "${csvcol[id]}" "${csvcol[weight]}" "${csvcol[ema]}" 
+}
+
 usage()
 {
 	cat <<- EOF
@@ -380,6 +406,7 @@ main()
 	case "${cmd}" in
 		candle) cmd_candle "${@}";;
 		ema)    cmd_ema "${@}";;
+		emas)   cmd_emas "${@}";;
 		_debug) "${@}";;
 		*) usage;;
 	esac
