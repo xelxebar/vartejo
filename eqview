@@ -27,6 +27,17 @@ readonly -A error=(
 )
 
 
+apikey()
+{
+	local key="${1}"
+	local -A uid=(
+		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
+	)
+
+	pass show "${uid[${key}]}"
+}
+
+
 ## Fetch and postprocess CSV data from alphavantage.co
 #
 # @param <1>  Stock symbol
@@ -175,7 +186,7 @@ munge_csv_prepend_header()
 	echo "${dat}"
 }
 
-## Flatten price data into single EMA summary column
+## Generate EMA column(s) from input column
 #
 # @param <1>  Exponential weight
 # @param [3]  CSV separator
@@ -290,17 +301,6 @@ plot_linespoints()
 		            with linespoints
 		            notitle;
 	"
-}
-
-
-apikey()
-{
-	local key="${1}"
-	local -A uid=(
-		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
-	)
-
-	pass show "${uid[${key}]}"
 }
 
 
