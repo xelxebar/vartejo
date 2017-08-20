@@ -6,6 +6,7 @@ readonly -A setting=(
 	[plot-vert-padding]=0.1
 	[plot-candlestick-neg-color]='red'
 	[plot-candlestick-pos-color]='green'
+	[plot-dgrid3d-mesh-size]=50
 	[ema-weight]=0.8
 	[csv-separator]=','
 )
@@ -311,6 +312,31 @@ plot_linespoints()
 		plot '<cat' using ${xcol} : ${ycol}
 		            with linespoints
 		            notitle;
+	"
+}
+
+## 3D Surface plot
+#
+# @param <1>  Plot x-axis column
+# @param <2>  Plot y-axis column
+# @param <3>  Plot z-axis column
+# @param [4]  Plot mesh size
+# @param [5]  CSV separator
+plot_dgrid3d()
+{
+	local xcol="${1}"
+	local ycol="${2}"
+	local zcol="${1}"
+	local meshsz="${4-${setting[plot-dgrid3d-mesh-size]}}"
+	local sep="${5-${setting[csv-separator]}}"
+
+	gnuplot --persist -e "
+		set datafile separator '${sep}';
+		set dgrid3d ${meshsz}, ${meshsz};
+
+		splot '<cat' using ${xcol} : ${ycol} : ${zcol}
+		             with lines
+		             notitle;
 	"
 }
 
