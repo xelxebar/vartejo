@@ -254,7 +254,10 @@ munge_csv_emas()
 		ema=( $(bc <<<"${bcema}") )
 
 		for i in $(seq 0 $(( "${#ema[@]}" - 1 ))); do
-			echo -e "${id}${sep}${date}${sep}${weight[i]}${sep}${ema[i]}"
+			printf '%b%b%b%b%b%b%b\n' "${id}" \
+			                 "${sep}" "${date}" \
+			                 "${sep}" "${weight[i]}" \
+			                 "${sep}" "${ema[i]}"
 		done
 	done
 }
