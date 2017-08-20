@@ -237,13 +237,24 @@ munge_csv_emas()
 	done
 
 	while IFS="${sep}" read -r id date open high low close volume; do
-		local ema
+		local -a ema=()
+		local bcmeas=""
+		local bcsum=""
+		local bcema=""
+
+		local i
 		for i in $(seq 0 $(( ${#weight[@]} - 1 ))); do
-			meas[i]=$(bc <<<"${meas[i]}*${weight[i]} + 1")
-			sum[i]=$(bc <<<"${sum[i]}*${weight[i]} + ${close}")
-			ema=$(bc <<<"${sum[i]}/${meas[i]}")
-			
-			echo -e "${id}${sep}${date}${sep}${weight[i]}${sep}${ema}"
+			bcmeas+="${meas[i]} * ${weight[i]} + 1;"
+			bcsum+="${sum[i]} * ${weight[i]} + ${close};"
+			bcema+="${sum[i]}/${meas[i]};"
+		done
+
+		meas=( $(bc <<<"${bcmeas}") )
+		sum=( $(bc <<<"${bcsum}") )
+		ema=( $(bc <<<"${bcema}") )
+
+		for i in $(seq 0 $(( "${#ema[@]}" - 1 ))); do
+			echo -e "${id}${sep}${date}${sep}${weight[i]}${sep}${ema[i]}"
 		done
 	done
 }
