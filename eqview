@@ -18,7 +18,8 @@ readonly -A csvcol=(
 	[low]=5
 	[close]=6
 	[volume]=7
-	[ema]=3
+	[weight]=3
+	[ema]=4
 )
 
 readonly -A error=(
@@ -188,31 +189,41 @@ munge_csv_prepend_header()
 
 ## Generate EMA column(s) from input column
 #
-# @param <1>  Exponential weight
-# @param [3]  CSV separator
-munge_csv_ema()
+# @params <1, ..>  Exponential weight(s)
+munge_csv_emas()
 {
-	local weight="${1}"
-	local sep="${2-${setting[csv-separator]}}"
+	local -a weights=("${@}")
+	local sep="${setting[csv-separator]}"
 
-	if [[ $(bc <<<"${weight} <  0") -eq 1 ]] \
-	|| [[ $(bc <<<"${weight} >  1") -eq 1 ]]; then
-		return "${error[bad-arg]}"
-	fi
+	local w
+	for w in "${weights[@]}"; do
+		if [[ $(bc <<<"${w} <  0") -eq 1 ]] \
+		|| [[ $(bc <<<"${w} >  1") -eq 1 ]]; then
+			return "${error[bad-arg]}"
+		fi
+	done
 
-	local id date open high low sum volume
-	IFS="${sep}" read -r id date open high low sum volume
-	echo -e "${id}${sep}${date}${sep}${sum}"
+	local id date open high low close volume
+	IFS="${sep}" read -r id date open high low close volume
 
-	local meas=1
+	local -a sum=()
+	local -a meas=()
+	for w in "${weights[@]}"; do
+		sum+=("${close}")
+		meas+=(1)
+		echo -e "${id}${sep}${date}${sep}${w}${sep}${close}"
+	done
+
 	while IFS="${sep}" read -r id date open high low close volume; do
 		local ema
-
-		meas=$(bc <<<"${meas}*${weight} + 1")
-		sum=$(bc <<<"${sum}*${weight} + ${close}")
-		ema=$(bc <<<"${sum}/${meas}")
-
-		echo -e "${id}${sep}${date}${sep}${ema}"
+		for i in $(seq 0 $(( ${#weights[@]} - 1 ))); do
+			w="${weights[i]}"
+			meas[i]=$(bc <<<"${meas[i]}*${w} + 1")
+			sum[i]=$(bc <<<"${sum[i]}*${w} + ${close}")
+			ema=$(bc <<<"${sum[i]}/${meas[i]}")
+			
+			echo -e "${id}${sep}${date}${sep}${w}${sep}${ema}"
+		done
 	done
 }
 
@@ -316,7 +327,7 @@ cmd_candle()
 cmd_ema()
 {
 	fetch_csv_time_series "${@}" \
-	| munge_csv_ema "${setting[ema-weight]}" \
+	| munge_csv_emas "${setting[ema-weight]}" \
 	| munge_csv_prepend_header "${csvcol[ema]}" "${csvcol[ema]}" \
 	| plot_linespoints "${csvcol[id]}" "${csvcol[ema]}" \
 	                   "${setting[plot-vert-padding]}"
