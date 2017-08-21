@@ -430,7 +430,7 @@ cmd_plot_emas()
 usage()
 {
 	cat <<- EOF
-	Usage: $(basename ${0}) <command> <command args>
+	Usage: $(basename "${0}") <command> <command args>
 
 	Commands
 
