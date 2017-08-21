@@ -575,9 +575,15 @@ apikey()
 	pass show "${uid[${key}]}"
 }
 
+## Run command if stdin is non-empty
+#
+# @param  <1>    Command
+# @params [2..]  Command arguments
 ifstdin()
 {
 	local stdin_first_byte
+	local cmd="${1}"; shift
+	local -a args=("${@}")
 
 	stdin_first_byte=$( dd bs=1 count=1 2>/dev/null \
 	                  | od --format=o1 --address-radix=n \
@@ -588,7 +594,7 @@ ifstdin()
 	else
 		( printf '%b' "\\${stdin_first_byte}"
 		  cat ) \
-		| "${@}"
+		| "${cmd}" "${args[@]}"
 	fi
 }
 
@@ -603,7 +609,7 @@ main()
 		return "${error[bad-cmd]}"
 	fi
 
-	readonly cmd="${1}"
+	local cmd="${1}"
 	shift
 
 	case "${cmd}" in
