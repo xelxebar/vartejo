@@ -61,7 +61,27 @@ ifstdin()
 }
 
 
-## Fetch and postprocess CSV data from alphavantage.co
+## Vendor-independent function for fetching time series data
+#
+# @param <1>  Stock symbol
+# @param [2]  Function
+# @param [3]  Output size
+# @param [4]  Interval
+fetch_csv_time_series()
+{
+	local symbol="${1}"
+	local function="${2-default}"
+	local outputsize="${3-default}"
+	local interval="${4-default}"
+
+	fetch_csv_time_series_alphavantage_co "${symbol}" \
+	                                      "${function}" \
+	                                      "${outputsize}" \
+	                                      "${interval}"
+}
+
+
+## Fetch data from alphavantage.co and process into internal format
 #
 # @param <1>  Stock symbol
 # @param [2]  Function
@@ -78,16 +98,16 @@ fetch_csv_time_series_alphavantage_co()
 	local sep="${5-${setting[csv-separator]}}"
 	apikey="$(apikey alphavantage.co)"
 
-	fetch_time_series_alphavantage_co "${apikey}" \
-	                                  "${symbol}" \
-	                                  "${function}" \
-	                                  "${outputsize}" \
-	                                  "${interval}" \
-	                                  csv \
+	fetch_raw_time_series_alphavantage_co "${apikey}" \
+	                                      "${symbol}" \
+	                                      "${function}" \
+	                                      "${outputsize}" \
+	                                      "${interval}" \
+	                                      csv \
 	| postfetch_csv_alphavantage_co_time_series "${sep}"
 }
 
-## Fetch JSON data from alphavantage.co
+## Fetch raw data from alphavantage.co
 #
 # @param <1>  API key
 # @param <2>  Stock symbol
@@ -95,8 +115,8 @@ fetch_csv_time_series_alphavantage_co()
 # @param [4]  Output size
 # @param [5]  Interval
 # @param [6]  Datatype
-# @stdout     JSON result
-fetch_time_series_alphavantage_co()
+# @stdout     result
+fetch_raw_time_series_alphavantage_co()
 {
 	[[ ${#} -lt 2 ]] && return "${error[bad-args]}"
 	[[ -z "${1}" ]] && return "${error[bad-args]}"
@@ -148,12 +168,6 @@ fetch_time_series_alphavantage_co()
 	query="${query#&}"
 
 	curl --silent "${url}/${path}?${query}"
-}
-
-## Vendor-independent function for fetching data
-fetch_csv_time_series()
-{
-	fetch_csv_time_series_alphavantage_co "${@}"
 }
 
 ## Postprocess alphavantage.co CSV result
