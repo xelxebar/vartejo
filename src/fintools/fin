@@ -139,7 +139,6 @@ fetch_csv_exchange_company_list()
 # @param [2]  Function
 # @param [3]  Output size
 # @param [4]  Interval
-# @param [5]  CSV separator
 fetch_csv_time_series_alphavantage_co()
 {
 	local apikey
@@ -147,7 +146,6 @@ fetch_csv_time_series_alphavantage_co()
 	local function="${2-default}"
 	local outputsize="${3-default}"
 	local interval="${4-default}"
-	local sep="${5-${setting[csv-separator]}}"
 	apikey="$(apikey alphavantage.co)"
 
 	fetch_raw_time_series_alphavantage_co "${apikey}" \
@@ -156,7 +154,7 @@ fetch_csv_time_series_alphavantage_co()
 	                                      "${outputsize}" \
 	                                      "${interval}" \
 	                                      csv \
-	| postfetch_csv_alphavantage_co_time_series "${sep}"
+	| postfetch_csv_alphavantage_co_time_series
 }
 
 ## Fetch and postprocess exchange company list data from nasdaq.com
@@ -234,11 +232,9 @@ fetch_raw_time_series_alphavantage_co()
 }
 
 ## Postprocess alphavantage.co CSV result
-#
-# @param [1]  CSV separator
 postfetch_csv_alphavantage_co_time_series()
 {
-	local sep="${1-${setting[csv-separator]}}"
+	local sep="${setting[csv-separator]}"
 	IFS= read -r
 
 	sed "s/\\r$//;
@@ -283,12 +279,11 @@ postfetch_csv_exchange_company_list_nasdaq_com()
 #
 # @param <1>  Column that contains data minimum
 # @param <2>  Column that contains data maximum 
-# @param [3]  CSV separator
 munge_csv_prepend_header()
 {
 	local mincol="${1}"
 	local maxcol="${2}"
-	local sep="${3-${setting[csv-separator]}}"
+	local sep="${setting[csv-separator]}"
 	local low high range count
 	local dat=""
 
@@ -388,13 +383,12 @@ munge_csv_emas()
 # @param [1]  Color for losses
 # @param [2]  Color for gains
 # @param [3]  Fraction of visual padding on top and bottom of graph
-# @param [4]  CSV separator
 plot_candlestick()
 {
 	local negcolor="${1-red}"
 	local poscolor="${2-green}"
 	local pad="${3-0}"
-	local sep="${4-${setting[csv-separator]}}"
+	local sep="${setting[csv-separator]}"
 	local negval=-1
 	local posval=1
 	local high low range count
@@ -438,13 +432,12 @@ plot_candlestick()
 # @param [1]  Plot x-axis column
 # @param [2]  Plot y-axis column
 # @param [3]  Fraction of visual padding on top and bottom of graph
-# @param [3]  CSV separator
 plot_linespoints()
 {
 	local xcol=${1-${csvcol[id]}}
 	local ycol=${2-${csvcol[close]}}
 	local pad="${3-0}"
-	local sep="${4-${setting[csv-separator]}}"
+	local sep="${setting[csv-separator]}"
 	local high low range count
 	local xmin xmax ymin ymax
 	IFS="${sep}" read -r high low range count
@@ -473,14 +466,13 @@ plot_linespoints()
 # @param <2>  Plot y-axis column
 # @param <3>  Plot z-axis column
 # @param [4]  Plot mesh size
-# @param [5]  CSV separator
 plot_dgrid3d()
 { (
 	local xcol="${1}"
 	local ycol="${2}"
 	local zcol="${3}"
 	local meshsz="${4-${setting[plot-dgrid3d-mesh-size]}}"
-	local sep="${5-${setting[csv-separator]}}"
+	local sep="${setting[csv-separator]}"
 	local dat
 
 	dat=$(mktemp)
