@@ -382,7 +382,7 @@ plot_dgrid3d()
 }
 
 
-cmd_candle()
+cmd_plot_candle()
 {
 	fetch_csv_time_series "${@}" \
 	| munge_csv_prepend_header "${csvcol[low]}" "${csvcol[high]}" \
@@ -391,7 +391,7 @@ cmd_candle()
 	                   "${setting[plot-vert-padding]}"
 }
 
-cmd_ema()
+cmd_plot_ema()
 {
 	fetch_csv_time_series "${@}" \
 	| munge_csv_emas "${setting[ema-weight]}" \
@@ -400,7 +400,7 @@ cmd_ema()
 	                   "${setting[plot-vert-padding]}"
 }
 
-cmd_emas()
+cmd_plot_emas()
 {
 	local n="${setting[ema-bin-count]}"
 	local max="${setting[ema-max]}"
@@ -429,9 +429,9 @@ usage()
 
 	Commands
 
-	    candle <symbol> [function] [output size] [interval]
-	    ema <symbol> [function] [output size] [interval]
-	    emas candle <symbol> [function] [output size] [interval]
+	    plot-candle <symbol> [function] [output size] [interval]
+	    plot-ema <symbol> [function] [output size] [interval]
+	    plot-emas candle <symbol> [function] [output size] [interval]
 
 	Command Args
 
@@ -454,9 +454,9 @@ main()
 	shift
 
 	case "${cmd}" in
-		candle) cmd_candle "${@}";;
-		ema)    cmd_ema "${@}";;
-		emas)   cmd_emas "${@}";;
+		plot-candle) cmd_plot_candle "${@}";;
+		plot-ema)    cmd_plot_ema "${@}";;
+		plot-emas)   cmd_plot_emas "${@}";;
 		_debug) "${@}";;
 		*) usage;;
 	esac
