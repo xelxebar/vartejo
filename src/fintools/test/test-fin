@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+. "$(dirname "${0}")/../fin"
+
+
+test_fetch_raw_time_series_alphavantage_co() { return; }
+test_postfetch_csv_alphavantage_co_time_series() { return; }
+
+test_fetch_raw_exchange_company_list_nasdaq_com() { return; }
+test_postfetch_csv_exchange_company_list_nasdaq_com() { return; }
+
+test_fetch_csv_time_series() { return; }
+test_fetch_csv_exchange_company_list() { return; }
+
+test_fetch_csv_time_series_alphavantage_co() { return; }
+test_fetch_csv_exchange_company_list_nasdaq_com() { return; }
+
+test_munge_csv_prepend_header() { return; }
+test_munge_csv_emas() { return; }
+
+test_plot_candlestick() { return; }
+test_plot_linespoints() { return; }
+test_plot_dgrid3d() { return; }
+
+test_cmd_csv_time_series() { return; }
+test_cmd_plot_candle() { return; }
+test_cmd_plot_ema() { return; }
+test_cmd_plot_emas() { return; }
+
+test_usage() { return; }
+test_apikey() { return; }
+test_ifstdin() { return; }
+
+
+## Print function backtrace
+# 
+# Prints the Bash function callstack backtrace when the last exit code is
+# non-zero. This shouldn't be called directly but instead trap on EXIT.
+print_backtrace()
+{
+	if [[ $? -ne 0 ]]; then
+		local i
+		for i in $(seq 1 $(( ${#FUNCNAME[@]} - 1 ))); do
+		# FUNCNAME[0] is this backtrace function, so we start from
+		# index 1
+			>&2 printf '%s(%s):%s\n' "${BASH_SOURCE[i]}" \
+			                         "${FUNCNAME[i]}" \
+			                         "${BASH_LINENO[i]}"
+		done
+	fi
+}
+
+## Run tests in local file
+#
+# Runs all functions in this file that begin with the string 'test'.
+run_tests()
+{
+	local file="${0}"
+	local -a tests=()
+	
+	tests=( $(sed --quiet 's/^\(test\w\+\)()$/\1/p' "${file}") )
+
+	local test_func
+	for test_func in "${tests[@]}"; do
+		"${test_func}"
+	done
+}
+
+if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
+	trap print_backtrace EXIT
+	run_tests
+fi
