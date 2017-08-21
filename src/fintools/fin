@@ -2,6 +2,9 @@
 set -euo pipefail
 
 
+### Global Settings and Parameters
+#  
+
 readonly -A setting=(
 	[plot-vert-padding]=0.1
 	[plot-candlestick-neg-color]='red'
@@ -33,33 +36,8 @@ readonly -A error=(
 )
 
 
-apikey()
-{
-	local key="${1}"
-	local -A uid=(
-		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
-	)
-
-	pass show "${uid[${key}]}"
-}
-
-ifstdin()
-{
-	local stdin_first_byte
-
-	stdin_first_byte=$( dd bs=1 count=1 2>/dev/null \
-	                  | od --format=o1 --address-radix=n \
-	                  | sed 's/^\s\+//' )
-
-	if [[ -z "${stdin_first_byte}" ]]; then
-		return "${error[stdin-empty]}"
-	else
-		( printf '%b' "\\${stdin_first_byte}"
-		  cat ) \
-		| "${@}"
-	fi
-}
-
+### Vendor-Independent API
+#
 
 ## Vendor-independent function for fetching time series data
 #
@@ -90,6 +68,8 @@ fetch_csv_exchange_company_list()
 	fetch_csv_exchange_company_list_nasdaq_com "${symbol}"
 }
 
+
+### Vendor-Specific API
 
 ## Fetch data from alphavantage.co and process into internal format
 #
@@ -124,6 +104,9 @@ fetch_csv_exchange_company_list_nasdaq_com()
 	| postfetch_csv_exchange_company_list_nasdaq_com
 }
 
+
+### Fetch and Postprocess Raw Vendor Data
+#
 
 ## Fetch raw data from alphavantage.co
 #
@@ -231,7 +214,10 @@ postfetch_csv_exchange_company_list_nasdaq_com()
 }
 
 
-## Prepend metadata header to TSV data
+### Data Mungers
+#
+
+## Prepend metadata header
 #
 # @param <1>  Column that contains data minimum
 # @param <2>  Column that contains data maximum 
@@ -328,6 +314,9 @@ munge_csv_emas()
 }
 
 
+### Data Visualization Functions
+#
+
 ## Colorized candlestick plot in X11
 #
 # @param [1]  Color for losses
@@ -378,9 +367,7 @@ plot_candlestick()
 	"
 }
 
-## ASCII line plot
-#
-# Draw an ASCII line plot. Defaults to closing prices from standard TSV
+## Simple line plot
 #
 # @param [1]  Plot x-axis column
 # @param [2]  Plot y-axis column
@@ -414,7 +401,7 @@ plot_linespoints()
 	"
 }
 
-## 3D Surface plot
+## 3D surface plot
 #
 # @param <1>  Plot x-axis column
 # @param <2>  Plot y-axis column
@@ -446,6 +433,9 @@ plot_dgrid3d()
 	"
 ) }
 
+
+### Command Functions
+#
 
 cmd_csv_time_series()
 {
@@ -512,6 +502,40 @@ usage()
 	EOF
 }
 
+
+### Helper Functions
+#
+
+apikey()
+{
+	local key="${1}"
+	local -A uid=(
+		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
+	)
+
+	pass show "${uid[${key}]}"
+}
+
+ifstdin()
+{
+	local stdin_first_byte
+
+	stdin_first_byte=$( dd bs=1 count=1 2>/dev/null \
+	                  | od --format=o1 --address-radix=n \
+	                  | sed 's/^\s\+//' )
+
+	if [[ -z "${stdin_first_byte}" ]]; then
+		return "${error[stdin-empty]}"
+	else
+		( printf '%b' "\\${stdin_first_byte}"
+		  cat ) \
+		| "${@}"
+	fi
+}
+
+
+### Main UI and Options Processing
+#
 
 main()
 {
