@@ -301,10 +301,14 @@ munge_csv_prepend_header()
 		dat+=$'\n'"${l}"
 	done
 
+	dat="${dat#\\n}"
 	range=$(bc <<<"${high} - ${low}")
 	count=$(tail -1 <<<"${dat}" | cut -d"${sep}" -f1)
 
-	printf '%s %s %s %s' "${high}" "${low}" "${range}" "${count}"
+	printf '%s%s%s%s%s%s%s\n' "${high}" \
+		         "${sep}" "${low}" \
+		         "${sep}" "${range}" \
+		         "${sep}" "${count}"
 	printf '%s' "${dat}"
 }
 
@@ -384,7 +388,7 @@ plot_candlestick()
 	local posval=1
 	local high low range count
 	local xmin xmax ymin ymax
-	IFS=" " read -r high low range count
+	IFS="${sep}" read -r high low range count
 	IFS= read -r
 
 	xmin=0
@@ -432,7 +436,7 @@ plot_linespoints()
 	local sep="${4-${setting[csv-separator]}}"
 	local high low range count
 	local xmin xmax ymin ymax
-	IFS=" " read -r high low range count
+	IFS="${sep}" read -r high low range count
 	IFS= read -r
 
 	xmin=0
