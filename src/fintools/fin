@@ -212,7 +212,7 @@ fetch_raw_time_series_alphavantage_co()
 	local -A datatype=(
 		[json]='json'
 		[csv]='csv'
-		[default]="${datatype[json]}"
+		[default]="${datatype[csv]}"
 	)
 
 	local -A field=(
