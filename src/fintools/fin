@@ -166,7 +166,7 @@ postfetch_csv_alphavantage_co_time_series()
 
 	sed "s/\\r$//;
 	     s/,/${sep}/g" \
-	| nl --number-width=1 --number-separator=','
+	| nl --number-width=1 --number-separator="${sep}"
 }
 
 ## Prepend metadata header to TSV data
