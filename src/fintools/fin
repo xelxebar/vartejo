@@ -80,6 +80,16 @@ fetch_csv_time_series()
 	                                      "${interval}"
 }
 
+## Vendor-independent function for fetching exchange company list
+#
+# @param <1>  Symbol of stock exchange
+fetch_csv_exchange_company_list()
+{
+	local symbol="${1}"
+
+	fetch_csv_exchange_company_list_nasdaq_com "${symbol}"
+}
+
 
 ## Fetch data from alphavantage.co and process into internal format
 #
@@ -106,6 +116,14 @@ fetch_csv_time_series_alphavantage_co()
 	                                      csv \
 	| postfetch_csv_alphavantage_co_time_series "${sep}"
 }
+
+## Fetch and postprocess exchange company list data from nasdaq.com
+fetch_csv_exchange_company_list_nasdaq_com()
+{
+	fetch_exchange_company_list_nasdaq_com "${@}" \
+	| postfetch_csv_exchange_company_list_nasdaq_com
+}
+
 
 ## Fetch raw data from alphavantage.co
 #
@@ -182,6 +200,36 @@ postfetch_csv_alphavantage_co_time_series()
 	     s/,/${sep}/g" \
 	| nl --number-width=1 --number-separator="${sep}"
 }
+
+## Fetch raw company list in stock exchanges from nasdaq.com
+#
+# @param <1>  Symbol of exchange
+fetch_raw_exchange_company_list_nasdaq_com()
+{
+	local symbol="${1}"
+	local url='http://www.nasdaq.com'
+	local path='screening/companies-by-industry.aspx'
+	local -A index=(
+		[NASDAQ]='NASDAQ'
+		[NYSE]='NYSE'
+		[AMEX]='AMEX'
+	)
+	local query="render=download&exchange=${index[${symbol}]}"
+
+	curl --silent "${url}/${path}?${query}"
+}
+
+## Postprocess nasdaq.com CSV result into internal format
+postfetch_csv_exchange_company_list_nasdaq_com()
+{
+	IFS= read -r
+
+	sed 's/^"//;
+	     s/",\r//;
+	     s/","/'"${sep}"'/g;' \
+	| nl --number-width --number-separator="${sep}"
+}
+
 
 ## Prepend metadata header to TSV data
 #
