@@ -189,8 +189,8 @@ munge_csv_prepend_header()
 		local llow
 		local lhigh
 
-		llow=$(echo "${l}"  | cut -d"${sep}" -f"${mincol}")
-		lhigh=$(echo "${l}" | cut -d"${sep}" -f"${maxcol}")
+		llow=$(cut -d"${sep}" -f"${mincol}" <<<"${l}")
+		lhigh=$(cut -d"${sep}" -f"${maxcol}" <<<"${l}")
 
 		if [[ $(bc <<<"${llow} < ${low}") -eq 1 ]]; then
 			low=${llow}
@@ -199,14 +199,14 @@ munge_csv_prepend_header()
 			high=${lhigh}
 		fi
 
-		dat="$(echo -e "${dat}\n${l}")"
+		dat+=$'\n'"${l}"
 	done
 
 	range=$(bc <<<"${high} - ${low}")
 	count=$(tail -1 <<<"${dat}" | cut -d"${sep}" -f1)
 
-	echo "${high}" "${low}" "${range}" "${count}"
-	echo "${dat}"
+	printf '%s %s %s %s' "${high}" "${low}" "${range}" "${count}"
+	printf '%s' "${dat}"
 }
 
 ## Generate EMA column(s) from input column
@@ -233,7 +233,10 @@ munge_csv_emas()
 	for w in "${weight[@]}"; do
 		sum+=("${close}")
 		meas+=(1)
-		echo -e "${id}${sep}${date}${sep}${w}${sep}${close}"
+		printf '%s%s%s%s%s%s%s\n' "${id}" \
+		                 "${sep}" "${date}" \
+		                 "${sep}" "${w}" \
+		                 "${sep}" "${close}"
 	done
 
 	while IFS="${sep}" read -r id date open high low close volume; do
@@ -254,7 +257,7 @@ munge_csv_emas()
 		ema=( $(bc <<<"${bcema}") )
 
 		for i in $(seq 0 $(( "${#ema[@]}" - 1 ))); do
-			printf '%b%b%b%b%b%b%b\n' "${id}" \
+			printf '%s%s%s%s%s%s%s\n' "${id}" \
 			                 "${sep}" "${date}" \
 			                 "${sep}" "${weight[i]}" \
 			                 "${sep}" "${ema[i]}"
