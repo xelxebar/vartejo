@@ -1,6 +1,57 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# MIT License
+# 
+# Copyright (c) 2017 Brandon Wilson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# A tool for processing securities and equities
+#
+# Conceptually, this program is a pipeline to process data. The birds-eye view
+# of data flow is as follows:
+#
+#     Fetch Data >> Munge Data >> Visualize Data.
+#
+# At each stage data is read from stdin, processed and written to stdout. The
+# ``Fetch Data'' stage is primarily responsible for downloading raw data from
+# relevant ``vendors'' and postprocessing that vendor-specific data into this
+# program's internal data format. This step should never result in data-loss.
+#
+# The internal data format is just CSV without a header line. Metadata is also
+# just represented as a CSV header prepended to the data CSV and separated by
+# a newline, similar to HTTP, SMTP etc.
+#
+# NOTE: CSV is well suited to line-oriented processing, the format becomes
+# ambiguous when the field separator can appear in the data. To circumvent
+# this, the field separator is configurable via '${setting[csv-separator]}'.
+#
+# The ``Munge Data'' is where the actual math happens. It expects
+# well-formatted data and ``munges'' it by performing whatever calculation is
+# of interest. The output should also be a well-formatted CSV. After this step
+# the original data will likely be processed away.
+#
+# Finally, the ``Visualize Data'' step is responsible presenting the processed
+# data to the user. This may vary from simple CSV column-selection to complex
+# 3D graphs.
+
 
 ### Global Settings and Parameters
 #  
