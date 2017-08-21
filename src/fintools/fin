@@ -357,7 +357,7 @@ plot_linespoints()
 # @param [4]  Plot mesh size
 # @param [5]  CSV separator
 plot_dgrid3d()
-{
+{ (
 	local xcol="${1}"
 	local ycol="${2}"
 	local zcol="${3}"
@@ -366,7 +366,7 @@ plot_dgrid3d()
 	local dat
 
 	dat=$(mktemp)
-	trap "rm ${dat}" EXIT
+	trap 'rm '"${dat}" EXIT
 	cat >"${dat}"
 
 	gnuplot --persist -e "
@@ -379,7 +379,7 @@ plot_dgrid3d()
 
 		pause mouse close
 	"
-}
+) }
 
 
 cmd_csv_time_series()
