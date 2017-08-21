@@ -30,18 +30,29 @@ set -euo pipefail
 #
 #     Fetch Data >> Munge Data >> Visualize Data.
 #
-# At each stage data is read from stdin, processed and written to stdout. The
-# ``Fetch Data'' stage is primarily responsible for downloading raw data from
-# relevant ``vendors'' and postprocessing that vendor-specific data into this
-# program's internal data format. This step should never result in data-loss.
+# At each stage data is read from stdin, processed and written to stdout.
+#
+# The ``Fetch Data'' stage is primarily responsible for downloading raw data
+# from relevant ``vendors'' and postprocessing that vendor-specific data into
+# this program's internal data format:
+#
+#     Fetch Raw Data >> Postproces.
+#
+# It's important to note that this step should never result in data-loss.
 #
 # The internal data format is just CSV without a header line. Metadata is also
-# just represented as a CSV header prepended to the data CSV and separated by
-# a newline, similar to HTTP, SMTP etc.
+# just represented as a CSV header prepended to the data CSV and separated by a
+# newline, similar to HTTP, SMTP etc. Visually,
 #
-# NOTE: CSV is well suited to line-oriented processing, the format becomes
-# ambiguous when the field separator can appear in the data. To circumvent
-# this, the field separator is configurable via '${setting[csv-separator]}'.
+#     <header field><sep><header field><sep>...
+#
+#     <data field><sep><data field><sep>...  <data field><sep><data
+#     field><sep>...  ...
+#
+# NOTE: CSV is well suited to line-oriented processing; however the format
+# becomes ambiguous when the field separator can appear in the data. To
+# circumvent this, the field separator is configurable via the
+# '${setting[csv-separator]}' variable.
 #
 # The ``Munge Data'' is where the actual math happens. It expects
 # well-formatted data and ``munges'' it by performing whatever calculation is
