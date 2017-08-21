@@ -382,6 +382,11 @@ plot_dgrid3d()
 }
 
 
+cmd_csv_time_series()
+{
+	fetch_csv_time_series "${@}"
+}
+
 cmd_plot_candle()
 {
 	fetch_csv_time_series "${@}" \
@@ -454,9 +459,10 @@ main()
 	shift
 
 	case "${cmd}" in
+		csv-time-series) cmd_csv_time_series "${@}";;
 		plot-candle) cmd_plot_candle "${@}";;
-		plot-ema)    cmd_plot_ema "${@}";;
-		plot-emas)   cmd_plot_emas "${@}";;
+		plot-ema) cmd_plot_ema "${@}";;
+		plot-emas) cmd_plot_emas "${@}";;
 		_debug) "${@}";;
 		*) usage;;
 	esac
