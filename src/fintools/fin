@@ -605,6 +605,7 @@ usage()
 
 	Commands
 
+	    csv-time-series <symbol> [function] [output size] [interval]
 	    plot-candle <symbol> [function] [output size] [interval]
 	    plot-ema <symbol> [function] [output size] [interval]
 	    plot-emas candle <symbol> [function] [output size] [interval]
