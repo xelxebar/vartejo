@@ -240,6 +240,7 @@ postfetch_csv_alphavantage_co_time_series()
 
 	sed "s/\\r$//;
 	     s/,/${sep}/g" \
+	| tac \
 	| nl --number-width=1 --number-separator="${sep}"
 }
 
