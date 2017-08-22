@@ -88,8 +88,8 @@ readonly -A csvcol=(
 	[low]=4
 	[close]=5
 	[volume]=6
-	[weight]=2
-	[ema]=3
+	[weight]=1
+	[ema]=2
 )
 
 readonly -A error=(
@@ -279,54 +279,84 @@ postfetch_csv_exchange_company_list_nasdaq_com()
 
 ## Prepend metadata header
 #
-# @param <1>  Column that contains data minimum
-# @param <2>  Column that contains data maximum 
-munge_csv_prepend_header()
+# The header format is as follows:
+#
+#     <num data cols><sep><num data rows>
+#     <arg #1 col min><sep><arg #1 col max>
+#     <arg #2 col min><sep><arg #2 col max>
+#     ...
+#
+# @params <1..>  Columns to operate on
+munge_csv_metadata_header()
 {
-	local mincol=$(("${1}" + 1))
-	local maxcol=$(("${2}" + 1))
+	local -a hcols=("${@}")
 	local sep="${setting[csv-separator]}"
-	local low high range count
-	local dat=""
+	local ncols nrows
+	local -a fields mins maxs
+	local tmp
 
-	low=$(getconf INT_MAX)
-	high=$(getconf INT_MIN)
+	tmp=$(mktemp)
+	trap 'rm '"${tmp}" EXIT
 
-	while IFS= read -r l; do
-		local llow
-		local lhigh
+	IFS="${sep}" read -ra fields
+	ncols=${#fields[@]}
+	nrows=1
+	mins=( "${fields[@]}" )
+	maxs=( "${fields[@]}" )
 
-		llow=$(cut -d"${sep}" -f"${mincol}" <<<"${l}")
-		lhigh=$(cut -d"${sep}" -f"${maxcol}" <<<"${l}")
+	( IFS="${sep}"
+	  printf '%s\n' "${fields[*]}"
+	) >>"${tmp}"
+	
+	while IFS="${sep}" read -ra fields; do
+		nrows=$(( nrows + 1 ))
 
-		if [[ $(bc <<<"${llow} < ${low}") -eq 1 ]]; then
-			low=${llow}
-		fi
-		if [[ $(bc <<<"${lhigh} > ${high}") -eq 1 ]]; then
-			high=${lhigh}
-		fi
+		local i
+		for i in "${hcols[@]}"; do
+			local f="${fields[i]}"
+			local min="${mins[i]}"
+			local max="${maxs[i]}"
 
-		dat+=$'\n'"${l}"
+			mins[i]=$(dc -e "[${f}]sM ${min}d ${f} <Mp")
+			maxs[i]=$(dc -e "[${f}]sM ${max}d ${f} >Mp")
+		done
+
+		( IFS="${sep}"
+		  printf '%s\n' "${fields[*]}"
+		) >>"${tmp}"
 	done
 
-	dat="${dat#\\n}"
-	range=$(bc <<<"${high} - ${low}")
-	count=$(tail -1 <<<"${dat}" | cut -d"${sep}" -f1)
+	( IFS="${sep}"
+	  printf '%s%s%s\n' "${ncols}" "${sep}" "${nrows}"
 
-	printf '%s%s%s%s%s%s%s\n' "${high}" \
-		         "${sep}" "${low}" \
-		         "${sep}" "${range}" \
-		         "${sep}" "${count}"
-	printf '%s' "${dat}"
+	  local i
+	  for i in "${hcols[@]}"; do
+		printf '%s%s%s\n' "${mins[i]}" "${sep}" "${maxs[i]}"
+	  done
+
+	  printf '\n'
+	  cat
+	) <"${tmp}"
 }
 
-## Generate EMA column(s) from input column
+## Generate EMA(s) from data column
 #
-# @params <1, ..>  Exponential weight(s)
+# Given a single weight, this is equivalent to an EMA dataset. However, in the
+# most general case, we generate a 3D dataset with rows of the form
+#
+#     <id><sep><weight><sep><ema>
+#
+# @param  <1>    ID column
+# @param  <2>    Data column
+# @params <3..>  Exponential weight(s)
 munge_csv_emas()
 {
-	local -a weight=("${@}")
+	local idcol="${1}"
+	local datcol="${2}"
 	local sep="${setting[csv-separator]}"
+	
+	shift 2
+	local -a weight=("${@}")
 
 	local w
 	for w in "${weight[@]}"; do
@@ -336,22 +366,22 @@ munge_csv_emas()
 		fi
 	done
 
-	local id date open high low close volume
-	IFS="${sep}" read -r id date open high low close volume
+	local -a fields
+	IFS="${sep}" read -ra fields
 
 	local -a sum=()
 	local -a meas=()
 	for w in "${weight[@]}"; do
-		sum+=("${close}")
+		sum+=("${fields[${datcol}]}")
 		meas+=(1)
-		printf '%s%s%s%s%s%s%s\n' "${id}" \
-		                 "${sep}" "${date}" \
+		printf '%s%s%s%s%s%s%s\n' "${fields[${idcol}]}" \
 		                 "${sep}" "${w}" \
-		                 "${sep}" "${close}"
+		                 "${sep}" "${fields[${datcol}]}"
 	done
 
-	while IFS="${sep}" read -r id date open high low close volume; do
+	while IFS="${sep}" read -ra fields; do
 		local -a ema=()
+		local datum="${fields[${datcol}]}"
 		local bcmeas=""
 		local bcsum=""
 		local bcema=""
@@ -359,7 +389,7 @@ munge_csv_emas()
 		local i
 		for i in $(seq 0 $(( ${#weight[@]} - 1 ))); do
 			bcmeas+="${meas[i]} * ${weight[i]} + 1;"
-			bcsum+="${sum[i]} * ${weight[i]} + ${close};"
+			bcsum+="${sum[i]} * ${weight[i]} + ${datum};"
 			bcema+="${sum[i]}/${meas[i]};"
 		done
 
@@ -368,10 +398,9 @@ munge_csv_emas()
 		ema=( $(bc <<<"${bcema}") )
 
 		for i in $(seq 0 $(( "${#ema[@]}" - 1 ))); do
-			printf '%s%s%s%s%s%s%s\n' "${id}" \
-			                 "${sep}" "${date}" \
-			                 "${sep}" "${weight[i]}" \
-			                 "${sep}" "${ema[i]}"
+			printf '%s%s%s%s%s\n' "${fields[${idcol}]}" \
+			             "${sep}" "${weight[i]}" \
+			             "${sep}" "${ema[i]}"
 		done
 	done
 }
@@ -400,15 +429,17 @@ plot_candlestick()
 	local sep="${setting[csv-separator]}"
 	local negval=-1
 	local posval=1
-	local max min range count
 	local xmin xmax ymin ymax
-	IFS="${sep}" read -r max min range count
+
+	local __="dummy variable"
+	IFS= read -r  # ncols nrows
+	IFS="${sep}" read -r xmin xmax
+	IFS="${sep}" read -r ymin __
+	IFS="${sep}" read -r __ ymax
 	IFS= read -r
 
-	xmin=0
-	xmax=$(( count + 1 ))
-	ymin=$(bc <<<"${min}  - ${range} * ${pad}")
-	ymax=$(bc <<<"${max} + ${range} * ${pad}")
+	ymin=$(bc <<<"${ymin} - (${ymax}-${ymin})*${pad}")
+	ymax=$(bc <<<"${ymax} + (${ymax}-${ymin})*${pad}")
 
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
@@ -446,15 +477,15 @@ plot_linespoints()
 	local ycol="${2}"
 	local pad="${setting[plot-vert-padding]}"
 	local sep="${setting[csv-separator]}"
-	local high low range count
 	local xmin xmax ymin ymax
-	IFS="${sep}" read -r high low range count
+
+	IFS= read -r  # ncols nrows
+	IFS="${sep}" read -r xmin xmax
+	IFS="${sep}" read -r ymin ymax
 	IFS= read -r
 
-	xmin=0
-	xmax=$(( count + 1 ))
-	ymin=$(bc <<<"${low}  - ${range} * ${pad}")
-	ymax=$(bc <<<"${high} + ${range} * ${pad}")
+	ymin=$(bc <<<"${ymin} - (${ymax}-${ymin})*${pad}")
+	ymax=$(bc <<<"${ymax} + (${ymax}-${ymin})*${pad}")
 
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
@@ -512,7 +543,9 @@ cmd_csv_time_series()
 cmd_plot_candle()
 {
 	fetch_csv_time_series "${@}" \
-	| munge_csv_prepend_header "${csvcol[low]}" "${csvcol[high]}" \
+	| munge_csv_metadata_header "${csvcol[id]}" \
+	                            "${csvcol[low]}"\
+	                            "${csvcol[high]}" \
 	| plot_candlestick "${csvcol[id]}" \
 	                   "${csvcol[open]}" \
 	                   "${csvcol[low]}" \
@@ -523,8 +556,10 @@ cmd_plot_candle()
 cmd_plot_ema()
 {
 	fetch_csv_time_series "${@}" \
-	| munge_csv_emas "${setting[ema-weight]}" \
-	| munge_csv_prepend_header "${csvcol[ema]}" "${csvcol[ema]}" \
+	| munge_csv_emas "${csvcol[id]}" \
+	                 "${csvcol[close]}" \
+	                 "${setting[ema-weight]}" \
+	| munge_csv_metadata_header "${csvcol[id]}" "${csvcol[ema]}" \
 	| plot_linespoints "${csvcol[id]}" "${csvcol[ema]}"
 }
 
@@ -546,7 +581,7 @@ cmd_plot_emas()
 	done
 
 	fetch_csv_time_series "${@}" \
-	| munge_csv_emas "${weights[@]}" \
+	| munge_csv_emas "${csvcol[id]}" "${csvcol[close]}" "${weights[@]}" \
 	| plot_dgrid3d "${csvcol[id]}" "${csvcol[weight]}" "${csvcol[ema]}" 
 }
 
