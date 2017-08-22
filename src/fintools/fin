@@ -177,7 +177,6 @@ fetch_csv_exchange_company_list_nasdaq_com()
 # @param [4]  Output size
 # @param [5]  Interval
 # @param [6]  Datatype
-# @stdout     result
 fetch_raw_time_series_alphavantage_co()
 {
 	[[ ${#} -lt 2 ]] && return "${error[bad-args]}"
@@ -279,12 +278,16 @@ postfetch_csv_exchange_company_list_nasdaq_com()
 
 ## Prepend metadata header
 #
-# The header format is as follows:
+# We generate minmax data for specified input columns and organize into a
+# header which we prepend to the input data, separated by a newline. The output
+# format is as follows:
 #
 #     <num data cols><sep><num data rows>
 #     <arg #1 col min><sep><arg #1 col max>
 #     <arg #2 col min><sep><arg #2 col max>
 #     ...
+#     <<newline>>
+#     <input data>
 #
 # @params <1..>  Columns to operate on
 munge_csv_metadata_header()
@@ -341,10 +344,20 @@ munge_csv_metadata_header()
 
 ## Generate EMA(s) from data column
 #
-# Given a single weight, this is equivalent to an EMA dataset. However, in the
-# most general case, we generate a 3D dataset with rows of the form
+# EMA stands for ``exponential moving average''. Here we generate this for a
+# specified column of input data. The output row format is as follows:
 #
 #     <id><sep><weight><sep><ema>
+#
+# The <weight> column allows us to unambiguously generate data for multiple
+# weights. A simple use case would be to view a few overlayed EMA curves.
+# However, a more sophisticated use might be to generate EMAs for an entire
+# interval of weights in order to produce a 3D graph of an EMA ``sheet''.
+#
+# NOTE: It is useful to note the extreme edge cases of weight values W:
+#
+#    1) when W = 0, the EMA is equal to original data, and
+#    2) when W = 1, the EMA is equal to the (moving) arithmetic mean.
 #
 # @param  <1>    ID column
 # @param  <2>    Data column
@@ -409,7 +422,7 @@ munge_csv_emas()
 ### Data Visualization Functions
 #
 
-## Colorized candlestick plot in X11
+## Candlestick plot
 #
 # @param <1>  Plot x-axis column
 # @param <2>  Plot open column
