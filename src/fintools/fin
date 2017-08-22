@@ -81,15 +81,15 @@ readonly -A setting=(
 )
 
 readonly -A csvcol=(
-	[id]=1
-	[date]=2
-	[open]=3
-	[high]=4
-	[low]=5
-	[close]=6
-	[volume]=7
-	[weight]=3
-	[ema]=4
+	[id]=0
+	[date]=1
+	[open]=2
+	[high]=3
+	[low]=4
+	[close]=5
+	[volume]=6
+	[weight]=2
+	[ema]=3
 )
 
 readonly -A error=(
@@ -283,8 +283,8 @@ postfetch_csv_exchange_company_list_nasdaq_com()
 # @param <2>  Column that contains data maximum 
 munge_csv_prepend_header()
 {
-	local mincol="${1}"
-	local maxcol="${2}"
+	local mincol=$(("${1}" + 1))
+	local maxcol=$(("${2}" + 1))
 	local sep="${setting[csv-separator]}"
 	local low high range count
 	local dat=""
@@ -382,26 +382,33 @@ munge_csv_emas()
 
 ## Colorized candlestick plot in X11
 #
-# @param [1]  Color for losses
-# @param [2]  Color for gains
-# @param [3]  Fraction of visual padding on top and bottom of graph
+# @param <1>  Plot x-axis column
+# @param <2>  Plot open column
+# @param <3>  Plot low column
+# @param <4>  Plot high column
+# @param <5>  Plot close column
 plot_candlestick()
 {
-	local negcolor="${1-red}"
-	local poscolor="${2-green}"
-	local pad="${3-0}"
+	local xcol="${1}"
+	local open="${2}"
+	local low="${3}"
+	local high="${4}"
+	local close="${5}"
+	local negcolor="${setting[plot-candlestick-neg-color]}"
+	local poscolor="${setting[plot-candlestick-pos-color]}"
+	local pad="${setting[plot-vert-padding]}"
 	local sep="${setting[csv-separator]}"
 	local negval=-1
 	local posval=1
-	local high low range count
+	local max min range count
 	local xmin xmax ymin ymax
-	IFS="${sep}" read -r high low range count
+	IFS="${sep}" read -r max min range count
 	IFS= read -r
 
 	xmin=0
 	xmax=$(( count + 1 ))
-	ymin=$(bc <<<"${low}  - ${range} * ${pad}")
-	ymax=$(bc <<<"${high} + ${range} * ${pad}")
+	ymin=$(bc <<<"${min}  - ${range} * ${pad}")
+	ymax=$(bc <<<"${max} + ${range} * ${pad}")
 
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
@@ -415,12 +422,12 @@ plot_candlestick()
 		unset colorbox;
 		set style fill solid noborder;
 
-		plot '<cat' using ${csvcol[id]}
-		                  :${csvcol[open]}
-		                  :${csvcol[low]}
-		                  :${csvcol[high]}
-		                  :${csvcol[close]}
-		                  :(\$${csvcol[close]} < \$${csvcol[open]}
+		plot '<cat' using $((${xcol} + 1))
+		                  :$((${open} + 1))
+		                  :$((${low} + 1))
+		                  :$((${high} + 1))
+		                  :$((${close} + 1))
+		                  :(\$$((${close} + 1)) < \$$((${open} + 1))
 		                    ? ${negval}
 		                    : ${posval})
 		            with candlesticks
@@ -431,14 +438,13 @@ plot_candlestick()
 
 ## Simple line plot
 #
-# @param [1]  Plot x-axis column
-# @param [2]  Plot y-axis column
-# @param [3]  Fraction of visual padding on top and bottom of graph
+# @param <1>  Plot x-axis column
+# @param <2>  Plot y-axis column
 plot_linespoints()
 {
-	local xcol=${1-${csvcol[id]}}
-	local ycol=${2-${csvcol[close]}}
-	local pad="${3-0}"
+	local xcol="${1}"
+	local ycol="${2}"
+	local pad="${setting[plot-vert-padding]}"
 	local sep="${setting[csv-separator]}"
 	local high low range count
 	local xmin xmax ymin ymax
@@ -456,7 +462,7 @@ plot_linespoints()
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
 
-		plot '<cat' using ${xcol} : ${ycol}
+		plot '<cat' using $((${xcol} + 1)) : $((${ycol} + 1))
 		            with linespoints
 		            notitle;
 	"
@@ -467,13 +473,12 @@ plot_linespoints()
 # @param <1>  Plot x-axis column
 # @param <2>  Plot y-axis column
 # @param <3>  Plot z-axis column
-# @param [4]  Plot mesh size
 plot_dgrid3d()
-{ (
+{
 	local xcol="${1}"
 	local ycol="${2}"
 	local zcol="${3}"
-	local meshsz="${4-${setting[plot-dgrid3d-mesh-size]}}"
+	local meshsz="${setting[plot-dgrid3d-mesh-size]}"
 	local sep="${setting[csv-separator]}"
 	local dat
 
@@ -485,13 +490,15 @@ plot_dgrid3d()
 		set datafile separator '${sep}';
 		set dgrid3d ${meshsz}, ${meshsz};
 
-		splot '${dat}' using ${xcol} : ${ycol} : ${zcol}
+		splot '${dat}' using $((${xcol} + 1))
+		                     :$((${ycol} + 1))
+		                     :$((${zcol} + 1))
 		             with lines
 		             notitle;
 
 		pause mouse close
 	"
-) }
+}
 
 
 ### Command Functions
@@ -506,9 +513,11 @@ cmd_plot_candle()
 {
 	fetch_csv_time_series "${@}" \
 	| munge_csv_prepend_header "${csvcol[low]}" "${csvcol[high]}" \
-	| plot_candlestick "${setting[plot-candlestick-neg-color]}" \
-	                   "${setting[plot-candlestick-pos-color]}" \
-	                   "${setting[plot-vert-padding]}"
+	| plot_candlestick "${csvcol[id]}" \
+	                   "${csvcol[open]}" \
+	                   "${csvcol[low]}" \
+	                   "${csvcol[high]}" \
+	                   "${csvcol[close]}"
 }
 
 cmd_plot_ema()
@@ -516,8 +525,7 @@ cmd_plot_ema()
 	fetch_csv_time_series "${@}" \
 	| munge_csv_emas "${setting[ema-weight]}" \
 	| munge_csv_prepend_header "${csvcol[ema]}" "${csvcol[ema]}" \
-	| plot_linespoints "${csvcol[id]}" "${csvcol[ema]}" \
-	                   "${setting[plot-vert-padding]}"
+	| plot_linespoints "${csvcol[id]}" "${csvcol[ema]}"
 }
 
 cmd_plot_emas()
