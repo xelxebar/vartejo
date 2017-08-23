@@ -80,16 +80,32 @@ readonly -A setting=(
 	[csv-separator]=$'\t'
 )
 
-readonly -A csvcol=(
-	[id]=0
-	[date]=1
-	[open]=2
-	[high]=3
-	[low]=4
-	[close]=5
-	[volume]=6
-	[weight]=1
-	[ema]=2
+typeset -A col_ts
+readonly -a cols_ts=(
+	'id'
+	'date'
+	'open'
+	'high'
+	'low'
+	'close'
+	'volume'
+)
+
+typeset -A col_emas
+readonly -a cols_emas=(
+	'id'
+	'weight'
+	'ema'
+)
+
+typeset -A col_secs
+readonly -a cols_secs=(
+	'id'
+	'symbol'
+	'name'
+	'sector'
+	'last-sale'
+	'cap'
 )
 
 readonly -A error=(
@@ -235,12 +251,36 @@ fetch_raw_time_series_alphavantage_co()
 postfetch_csv_alphavantage_co_time_series()
 {
 	local sep="${setting[csv-separator]}"
-	IFS= read -r
+	local cols_ord=""
+	local -A col_raw=(
+		[id]=0
+		[date]=1
+		[open]=2
+		[high]=3
+		[low]=4
+		[close]=5
+		[volume]=6
+	)
 
+	local col
+	for col in "${cols_ts[@]}"; do
+		if [[ -n "${col_raw[${col}]-}" ]]; then
+			cols_ord+="\$$((col_raw["${col}"] + 1)),"
+		else
+			cols_ord+="\"${sep}\","
+		fi
+	done
+	cols_ord="${cols_ord%,}"
+
+	IFS= read -r
 	sed "s/\\r$//;
 	     s/,/${sep}/g" \
 	| tac \
-	| nl --number-width=1 --number-separator="${sep}"
+	| nl --number-width=1 --number-separator="${sep}" \
+	| awk --field-separator "${sep}" "
+		BEGIN { OFS=\"${sep}\" }
+		{ print(${cols_ord}) }
+	"
 }
 
 ## Fetch raw company list in stock exchanges from nasdaq.com
@@ -264,12 +304,39 @@ fetch_raw_securities_nasdaq_com()
 ## Postprocess nasdaq.com CSV result into internal format
 postfetch_csv_securities_nasdaq_com()
 {
-	IFS= read -r
+	local sep="${setting[csv-separator]}"
+	local cols_ord=""
+	local -A col_raw=(
+		[id]=0
+		[symbol]=1
+		[name]=2
+		[last-sale]=3
+		[cap]=4
+		[ipo-year]=5
+		[sector]=6
+		[industry]=7
+		[quote]=8
+	)
 
+	local col
+	for col in "${cols_secs[@]}"; do
+		if [[ -n "${col_raw[${col}]-}" ]]; then
+			cols_ord+="\$$((col_raw["${col}"] + 1)),"
+		else
+			cols_ord+="\"${sep}\","
+		fi
+	done
+	cols_ord="${cols_ord%,}"
+
+	IFS= read -r
 	sed 's/^"//;
 	     s/",\r//;
 	     s/","/'"${sep}"'/g;' \
-	| nl --number-width --number-separator="${sep}"
+	| nl --number-width=1 --number-separator="${sep}" \
+	| awk --field-separator "${sep}" "
+		BEGIN { OFS=\"${sep}\" }
+		{ print(${cols_ord}) }
+	"
 }
 
 
@@ -291,7 +358,9 @@ munge_csv_filter_columns()
 	done
 
 	fields="$(IFS=','; printf '%s' "${cols[*]}")"
-	cut --delimiter="${sep}" --fields="${fields}"
+	cut --delimiter="${sep}" \
+	    --output-delimiter="${sep}" \
+	    --fields="${fields}"
 }
 
 ## Prepend metadata header
@@ -576,24 +645,24 @@ cmd_csv_time_series()
 cmd_plot_candle()
 {
 	fetch_csv_time_series "${@}" \
-	| munge_csv_metadata_header "${csvcol[id]}" \
-	                            "${csvcol[low]}"\
-	                            "${csvcol[high]}" \
-	| plot_candlestick "${csvcol[id]}" \
-	                   "${csvcol[open]}" \
-	                   "${csvcol[low]}" \
-	                   "${csvcol[high]}" \
-	                   "${csvcol[close]}"
+	| munge_csv_metadata_header "${col_ts[id]}" \
+	                            "${col_ts[low]}"\
+	                            "${col_ts[high]}" \
+	| plot_candlestick "${col_ts[id]}" \
+	                   "${col_ts[open]}" \
+	                   "${col_ts[low]}" \
+	                   "${col_ts[high]}" \
+	                   "${col_ts[close]}"
 }
 
 cmd_plot_ema()
 {
 	fetch_csv_time_series "${@}" \
-	| munge_csv_emas "${csvcol[id]}" \
-	                 "${csvcol[close]}" \
+	| munge_csv_emas "${col_ts[id]}" \
+	                 "${col_ts[close]}" \
 	                 "${setting[ema-weight]}" \
-	| munge_csv_metadata_header "${csvcol[id]}" "${csvcol[ema]}" \
-	| plot_linespoints "${csvcol[id]}" "${csvcol[ema]}"
+	| munge_csv_metadata_header "${col_emas[id]}" "${col_emas[ema]}" \
+	| plot_linespoints "${col_emas[id]}" "${col_emas[ema]}"
 }
 
 cmd_plot_emas()
@@ -614,8 +683,10 @@ cmd_plot_emas()
 	done
 
 	fetch_csv_time_series "${@}" \
-	| munge_csv_emas "${csvcol[id]}" "${csvcol[close]}" "${weights[@]}" \
-	| plot_dgrid3d "${csvcol[id]}" "${csvcol[weight]}" "${csvcol[ema]}" 
+	| munge_csv_emas "${col_ts[id]}" "${col_ts[close]}" "${weights[@]}" \
+	| plot_dgrid3d "${col_emas[id]}" \
+	               "${col_emas[weight]}" \
+	               "${col_emas[ema]}" 
 }
 
 usage()
@@ -676,6 +747,39 @@ ifstdin()
 	fi
 }
 
+## Build a reverse hash from an array
+#
+# Suppose we have the array
+#
+#     typeset -a array=(foo bar baz),
+#
+# this function produces an array equivalent to
+#
+#     typeset -A rhash=(
+#             [foo]=0
+#             [bar]=1
+#             [baz]=2
+#     ).
+#
+# The reverse hash allows for efficiently fetching the index of an element in
+# the original array. Suppose we wish to know the index of 'bar', we can avoid
+# iterating over 'array[@]' and just fetch 'rhash[bar]'.
+#
+# @param <1>  Data array name
+# @param <2>  Reverse hash array name
+_rhash()
+{
+	local -n array="${1}"
+	local rhash="${2}"
+
+	eval "${rhash}"'=('"$(
+		local i
+		for i in "${!array[@]}"; do
+			printf '[%s]=%s\n' "${array[i]}" "${i}"
+		done
+	)"')'
+}
+
 
 ### Main UI and Options Processing
 #
@@ -686,6 +790,10 @@ main()
 		usage
 		return "${error[bad-cmd]}"
 	fi
+
+	_rhash cols_ts col_ts
+	_rhash cols_emas col_emas
+	_rhash cols_secs col_secs
 
 	local cmd="${1}"
 	shift
