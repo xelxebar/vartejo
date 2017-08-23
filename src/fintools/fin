@@ -333,7 +333,7 @@ munge_csv_metadata_header()
 	) >>"${tmp}"
 	
 	while IFS="${sep}" read -ra fields; do
-		nrows=$(( nrows + 1 ))
+		nrows=$((nrows + 1))
 
 		local i
 		for i in "${hcols[@]}"; do
