@@ -648,7 +648,7 @@ cmd_csv_time_series()
 	fetch_csv_time_series "${@}"
 }
 
-cmd_plot_candle()
+cmd_plot_time_series()
 {
 	fetch_csv_time_series "${@}" \
 	| munge_csv_metadata_header "${col_ts[id]}" \
@@ -671,7 +671,7 @@ cmd_plot_ema()
 	| plot_linespoints "${col_emas[id]}" "${col_emas[ema]}"
 }
 
-cmd_plot_emas()
+cmd_plot_ema_interval()
 {
 	local n="${setting[ema-bin-count]}"
 	local max="${setting[ema-max]}"
@@ -702,11 +702,11 @@ usage()
 
 	Commands
 
-	    list-securities <exchange symbol>
-	    csv-time-series <symbol> [function] [output size] [interval]
-	    plot-candle <symbol> [function] [output size] [interval]
+	    list-secs <exchange symbol>
+	    list-ts <symbol> [function] [output size] [interval]
+	    plot-ts <symbol> [function] [output size] [interval]
 	    plot-ema <symbol> [function] [output size] [interval]
-	    plot-emas candle <symbol> [function] [output size] [interval]
+	    plot-ema-int <symbol> [function] [output size] [interval]
 
 	Command Args
 
@@ -806,11 +806,11 @@ main()
 	shift
 
 	case "${cmd}" in
-		list-securities) cmd_csv_securities "${@}";;
-		csv-time-series) cmd_csv_time_series "${@}";;
-		plot-candle) cmd_plot_candle "${@}";;
+		list-secs) cmd_csv_securities "${@}";;
+		list-ts) cmd_csv_time_series "${@}";;
+		plot-ts) cmd_plot_time_series "${@}";;
 		plot-ema) cmd_plot_ema "${@}";;
-		plot-emas) cmd_plot_emas "${@}";;
+		plot-ema-int) cmd_plot_ema_interval "${@}";;
 		_debug) "${@}";;
 		*) usage;;
 	esac
