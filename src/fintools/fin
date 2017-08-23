@@ -276,6 +276,24 @@ postfetch_csv_exchange_company_list_nasdaq_com()
 ### Data Mungers
 #
 
+## Filter column
+#
+# @params <1..>  Columns to preserve
+munge_csv_filter_columns()
+{
+	local -a cols=("${@}")
+	local sep="${setting[csv-separator]}"
+	local fields=""
+
+	local i
+	for i in "${!cols[@]}"; do
+		cols[i]=$((cols[i] + 1))
+	done
+
+	fields="$(IFS=','; printf '%s' "${cols[*]}")"
+	cut --delimiter="${sep}" --fields="${fields}"
+}
+
 ## Prepend metadata header
 #
 # We generate minmax data for specified input columns and organize into a
