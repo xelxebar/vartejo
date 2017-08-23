@@ -637,6 +637,12 @@ plot_dgrid3d()
 ### Command Functions
 #
 
+cmd_csv_securities()
+{
+	fetch_csv_securities "${@}" \
+	| munge_csv_filter_columns "${col_secs[symbol]}" "${col_secs[name]}"
+}
+
 cmd_csv_time_series()
 {
 	fetch_csv_time_series "${@}"
@@ -696,6 +702,7 @@ usage()
 
 	Commands
 
+	    list-securities <exchange symbol>
 	    csv-time-series <symbol> [function] [output size] [interval]
 	    plot-candle <symbol> [function] [output size] [interval]
 	    plot-ema <symbol> [function] [output size] [interval]
@@ -799,6 +806,7 @@ main()
 	shift
 
 	case "${cmd}" in
+		list-securities) cmd_csv_securities "${@}";;
 		csv-time-series) cmd_csv_time_series "${@}";;
 		plot-candle) cmd_plot_candle "${@}";;
 		plot-ema) cmd_plot_ema "${@}";;
