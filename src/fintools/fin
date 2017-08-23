@@ -387,9 +387,9 @@ munge_csv_emas()
 	for w in "${weight[@]}"; do
 		sum+=("${fields[${datcol}]}")
 		meas+=(1)
-		printf '%s%s%s%s%s%s%s\n' "${fields[${idcol}]}" \
-		                 "${sep}" "${w}" \
-		                 "${sep}" "${fields[${datcol}]}"
+		printf '%s%s%s%s%s\n' "${fields[${idcol}]}" \
+		             "${sep}" "${w}" \
+		             "${sep}" "${fields[${datcol}]}"
 	done
 
 	while IFS="${sep}" read -ra fields; do
@@ -444,11 +444,10 @@ plot_candlestick()
 	local posval=1
 	local xmin xmax ymin ymax
 
-	local __="dummy variable"
 	IFS= read -r  # ncols nrows
 	IFS="${sep}" read -r xmin xmax
-	IFS="${sep}" read -r ymin __
-	IFS="${sep}" read -r __ ymax
+	IFS="${sep}" read -r ymin _
+	IFS="${sep}" read -r _ ymax
 	IFS= read -r
 
 	ymin=$(bc <<<"${ymin} - (${ymax}-${ymin})*${pad}")
@@ -466,12 +465,12 @@ plot_candlestick()
 		unset colorbox;
 		set style fill solid noborder;
 
-		plot '<cat' using $((${xcol} + 1))
-		                  :$((${open} + 1))
-		                  :$((${low} + 1))
-		                  :$((${high} + 1))
-		                  :$((${close} + 1))
-		                  :(\$$((${close} + 1)) < \$$((${open} + 1))
+		plot '<cat' using $((xcol + 1))
+		                  :$((open + 1))
+		                  :$((low + 1))
+		                  :$((high + 1))
+		                  :$((close + 1))
+		                  :(\$$((close + 1)) < \$$((open + 1))
 		                    ? ${negval}
 		                    : ${posval})
 		            with candlesticks
@@ -506,7 +505,7 @@ plot_linespoints()
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
 
-		plot '<cat' using $((${xcol} + 1)) : $((${ycol} + 1))
+		plot '<cat' using $((xcol + 1)) : $((ycol + 1))
 		            with linespoints
 		            notitle;
 	"
@@ -534,9 +533,9 @@ plot_dgrid3d()
 		set datafile separator '${sep}';
 		set dgrid3d ${meshsz}, ${meshsz};
 
-		splot '${dat}' using $((${xcol} + 1))
-		                     :$((${ycol} + 1))
-		                     :$((${zcol} + 1))
+		splot 'dat' using $((xcol + 1))
+		                  :$((ycol + 1))
+		                  :$((zcol + 1))
 		             with lines
 		             notitle;
 
