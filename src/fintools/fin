@@ -307,7 +307,10 @@ munge_csv_filter_columns()
 #     <<newline>>
 #     <input data>
 #
-# @params <1..>  Columns to operate on
+# If no arguments are given, then the header will consist of just the first row
+# above.
+#
+# @params [1..]  Columns to operate on
 munge_csv_metadata_header()
 {
 	local -a hcols=("${@}")
