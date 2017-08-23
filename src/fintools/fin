@@ -554,11 +554,11 @@ plot_dgrid3d()
 		set datafile separator '${sep}';
 		set dgrid3d ${meshsz}, ${meshsz};
 
-		splot 'dat' using $((xcol + 1))
-		                  :$((ycol + 1))
-		                  :$((zcol + 1))
-		             with lines
-		             notitle;
+		splot '${dat}' using $((xcol + 1))
+		                      :$((ycol + 1))
+		                      :$((zcol + 1))
+		                      with lines
+		                      notitle;
 
 		pause mouse close
 	"
