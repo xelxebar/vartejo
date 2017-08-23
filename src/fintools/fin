@@ -124,11 +124,11 @@ fetch_csv_time_series()
 ## Vendor-independent function for fetching exchange company list
 #
 # @param <1>  Symbol of stock exchange
-fetch_csv_exchange_company_list()
+fetch_csv_securities()
 {
 	local symbol="${1}"
 
-	fetch_csv_exchange_company_list_nasdaq_com "${symbol}"
+	fetch_csv_securities_nasdaq_com "${symbol}"
 }
 
 
@@ -159,10 +159,10 @@ fetch_csv_time_series_alphavantage_co()
 }
 
 ## Fetch and postprocess exchange company list data from nasdaq.com
-fetch_csv_exchange_company_list_nasdaq_com()
+fetch_csv_securities_nasdaq_com()
 {
-	fetch_exchange_company_list_nasdaq_com "${@}" \
-	| postfetch_csv_exchange_company_list_nasdaq_com
+	fetch_raw_securities_nasdaq_com "${@}" \
+	| postfetch_csv_securities_nasdaq_com
 }
 
 
@@ -246,7 +246,7 @@ postfetch_csv_alphavantage_co_time_series()
 ## Fetch raw company list in stock exchanges from nasdaq.com
 #
 # @param <1>  Symbol of exchange
-fetch_raw_exchange_company_list_nasdaq_com()
+fetch_raw_securities_nasdaq_com()
 {
 	local symbol="${1}"
 	local url='http://www.nasdaq.com'
@@ -262,7 +262,7 @@ fetch_raw_exchange_company_list_nasdaq_com()
 }
 
 ## Postprocess nasdaq.com CSV result into internal format
-postfetch_csv_exchange_company_list_nasdaq_com()
+postfetch_csv_securities_nasdaq_com()
 {
 	IFS= read -r
 
