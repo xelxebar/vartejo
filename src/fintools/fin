@@ -400,7 +400,7 @@ munge_csv_emas()
 		local bcema=""
 
 		local i
-		for i in $(seq 0 $(( ${#weight[@]} - 1 ))); do
+		for i in "${!weight[@]}"; do
 			bcmeas+="${meas[i]} * ${weight[i]} + 1;"
 			bcsum+="${sum[i]} * ${weight[i]} + ${datum};"
 			bcema+="${sum[i]}/${meas[i]};"
@@ -410,7 +410,7 @@ munge_csv_emas()
 		sum=( $(bc <<<"${bcsum}") )
 		ema=( $(bc <<<"${bcema}") )
 
-		for i in $(seq 0 $(( "${#ema[@]}" - 1 ))); do
+		for i in "${!ema[@]}"; do
 			printf '%s%s%s%s%s\n' "${fields[${idcol}]}" \
 			             "${sep}" "${weight[i]}" \
 			             "${sep}" "${ema[i]}"
