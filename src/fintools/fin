@@ -65,7 +65,7 @@ shopt -s -o errexit nounset pipefail
 # 3D graphs.
 
 
-### Global Settings and Parameters
+### UI Settings
 #  
 
 readonly -A setting=(
@@ -80,8 +80,12 @@ readonly -A setting=(
 	[csv-separator]=$'\t'
 )
 
-typeset -A col_ts
-readonly -a cols_ts=(
+
+## Data Representation
+#
+
+typeset -A _ts  # rhash of 'columns_time_series'
+readonly -a columns_time_series=(
 	'id'
 	'date'
 	'open'
@@ -91,15 +95,15 @@ readonly -a cols_ts=(
 	'volume'
 )
 
-typeset -A col_emas
-readonly -a cols_emas=(
+typeset -A _me  # rhash of 'columns_multi_ema'
+readonly -a columns_multi_ema=(
 	'id'
 	'weight'
 	'ema'
 )
 
-typeset -A col_secs
-readonly -a cols_secs=(
+typeset -A _sl  # rhash of 'columns_securities_list'
+readonly -a columns_securities_list=(
 	'id'
 	'symbol'
 	'name'
@@ -108,11 +112,85 @@ readonly -a cols_secs=(
 	'cap'
 )
 
+
+## Internal Globals
+#
+
 readonly -A error=(
 	[bad-args]=101
 	[bad-cmd]=102
 	[stdin-empty]=201
 )
+
+
+### Helper Functions
+#
+
+apikey()
+{
+	local key="${1}"
+	local -A uid=(
+		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
+	)
+
+	pass show "${uid[${key}]}"
+}
+
+## Run command if stdin is non-empty
+#
+# @param  <1>    Command
+# @params [2..]  Command arguments
+ifstdin()
+{
+	local stdin_first_byte
+	local cmd="${1}"; shift
+	local -a args=("${@}")
+
+	stdin_first_byte=$( dd bs=1 count=1 2>/dev/null \
+	                  | od --format=o1 --address-radix=n \
+	                  | sed 's/^\s\+//' )
+
+	if [[ -z "${stdin_first_byte}" ]]; then
+		return "${error[stdin-empty]}"
+	else
+		( printf '%b' "\\${stdin_first_byte}"
+		  cat ) \
+		| "${cmd}" "${args[@]}"
+	fi
+}
+
+## Build a reverse hash from an array
+#
+# Suppose we have the array
+#
+#     typeset -a array=(foo bar baz),
+#
+# this function produces an array equivalent to
+#
+#     typeset -A rhash=(
+#             [foo]=0
+#             [bar]=1
+#             [baz]=2
+#     ).
+#
+# The reverse hash allows for efficiently fetching the index of an element in
+# the original array. Suppose we wish to know the index of 'bar', we can avoid
+# iterating over 'array[@]' and just fetch 'rhash[bar]'.
+#
+# @param <1>  Reverse hash array name
+# @param <2>  Data array name
+mkrhash()
+{
+	local rhash="${1}"
+	local -n array="${2}"
+
+	eval "${rhash}"'=('"$(
+		local i
+		for i in "${!array[@]}"; do
+			printf '[%s]=%s\n' "${array[i]}" "${i}"
+		done
+	)"')'
+}
 
 
 ### Vendor-Independent API
@@ -124,27 +202,27 @@ readonly -A error=(
 # @param [2]  Function
 # @param [3]  Output size
 # @param [4]  Interval
-fetch_csv_time_series()
+fetch_time_series()
 {
 	local symbol="${1}"
 	local function="${2-default}"
 	local outputsize="${3-default}"
 	local interval="${4-default}"
 
-	fetch_csv_time_series_alphavantage_co "${symbol}" \
-	                                      "${function}" \
-	                                      "${outputsize}" \
-	                                      "${interval}"
+	fetch_time_series_alphavantage_co "${symbol}" \
+	                                  "${function}" \
+	                                  "${outputsize}" \
+	                                  "${interval}"
 }
 
 ## Vendor-independent function for fetching exchange company list
 #
 # @param <1>  Symbol of stock exchange
-fetch_csv_securities()
+fetch_securities()
 {
 	local symbol="${1}"
 
-	fetch_csv_securities_nasdaq_com "${symbol}"
+	fetch_securities_nasdaq_com "${symbol}"
 }
 
 
@@ -156,7 +234,7 @@ fetch_csv_securities()
 # @param [2]  Function
 # @param [3]  Output size
 # @param [4]  Interval
-fetch_csv_time_series_alphavantage_co()
+fetch_time_series_alphavantage_co()
 {
 	local apikey
 	local symbol="${1}"
@@ -171,14 +249,14 @@ fetch_csv_time_series_alphavantage_co()
 	                                      "${outputsize}" \
 	                                      "${interval}" \
 	                                      csv \
-	| postfetch_csv_alphavantage_co_time_series
+	| postfetch_alphavantage_co_time_series
 }
 
 ## Fetch and postprocess exchange company list data from nasdaq.com
-fetch_csv_securities_nasdaq_com()
+fetch_securities_nasdaq_com()
 {
 	fetch_raw_securities_nasdaq_com "${@}" \
-	| postfetch_csv_securities_nasdaq_com
+	| postfetch_securities_nasdaq_com
 }
 
 
@@ -248,11 +326,11 @@ fetch_raw_time_series_alphavantage_co()
 }
 
 ## Postprocess alphavantage.co CSV result
-postfetch_csv_alphavantage_co_time_series()
+postfetch_alphavantage_co_time_series()
 {
 	local sep="${setting[csv-separator]}"
-	local cols_ord=""
-	local -A col_raw=(
+	local awkcols=""
+	local -A rawcol=(
 		[id]=0
 		[date]=1
 		[open]=2
@@ -263,14 +341,14 @@ postfetch_csv_alphavantage_co_time_series()
 	)
 
 	local col
-	for col in "${cols_ts[@]}"; do
-		if [[ -n "${col_raw[${col}]-}" ]]; then
-			cols_ord+="\$$((col_raw["${col}"] + 1)),"
+	for col in "${columns_times_series[@]}"; do
+		if [[ -n "${rawcol[${col}]-}" ]]; then
+			awkcols+="\$$((rawcol["${col}"] + 1)),"
 		else
-			cols_ord+="\"${sep}\","
+			awkcols+="\"${sep}\","
 		fi
 	done
-	cols_ord="${cols_ord%,}"
+	awkcols="${awkcols%,}"
 
 	IFS= read -r
 	sed "s/\\r$//;
@@ -279,7 +357,7 @@ postfetch_csv_alphavantage_co_time_series()
 	| nl --number-width=1 --number-separator="${sep}" \
 	| awk --field-separator "${sep}" "
 		BEGIN { OFS=\"${sep}\" }
-		{ print(${cols_ord}) }
+		{ print(${awkcols}) }
 	"
 }
 
@@ -302,11 +380,11 @@ fetch_raw_securities_nasdaq_com()
 }
 
 ## Postprocess nasdaq.com CSV result into internal format
-postfetch_csv_securities_nasdaq_com()
+postfetch_securities_nasdaq_com()
 {
 	local sep="${setting[csv-separator]}"
-	local cols_ord=""
-	local -A col_raw=(
+	local awkcols=""
+	local -A rawcol=(
 		[id]=0
 		[symbol]=1
 		[name]=2
@@ -319,14 +397,14 @@ postfetch_csv_securities_nasdaq_com()
 	)
 
 	local col
-	for col in "${cols_secs[@]}"; do
-		if [[ -n "${col_raw[${col}]-}" ]]; then
-			cols_ord+="\$$((col_raw["${col}"] + 1)),"
+	for col in "${columns_securities_list[@]}"; do
+		if [[ -n "${rawcol[${col}]-}" ]]; then
+			awkcols+="\$$((rawcol["${col}"] + 1)),"
 		else
-			cols_ord+="\"${sep}\","
+			awkcols+="\"${sep}\","
 		fi
 	done
-	cols_ord="${cols_ord%,}"
+	awkcols="${awkcols%,}"
 
 	IFS= read -r
 	sed 's/^"//;
@@ -335,7 +413,7 @@ postfetch_csv_securities_nasdaq_com()
 	| nl --number-width=1 --number-separator="${sep}" \
 	| awk --field-separator "${sep}" "
 		BEGIN { OFS=\"${sep}\" }
-		{ print(${cols_ord}) }
+		{ print(${awkcols}) }
 	"
 }
 
@@ -346,7 +424,7 @@ postfetch_csv_securities_nasdaq_com()
 ## Filter column
 #
 # @params <1..>  Columns to preserve
-munge_csv_filter_columns()
+munge_filter_columns()
 {
 	local -a cols=("${@}")
 	local sep="${setting[csv-separator]}"
@@ -380,7 +458,7 @@ munge_csv_filter_columns()
 # above.
 #
 # @params [1..]  Columns to operate on
-munge_csv_metadata_header()
+munge_metadata_prepend_header()
 {
 	local -a hcols=("${@}")
 	local sep="${setting[csv-separator]}"
@@ -452,7 +530,7 @@ munge_csv_metadata_header()
 # @param  <1>    ID column
 # @param  <2>    Data column
 # @params <3..>  Exponential weight(s)
-munge_csv_emas()
+munge_multi_ema()
 {
 	local idcol="${1}"
 	local datcol="${2}"
@@ -641,38 +719,37 @@ plot_dgrid3d()
 ### Command Functions
 #
 
-cmd_csv_securities()
+cmd_list_securities()
 {
-	fetch_csv_securities "${@}" \
-	| munge_csv_filter_columns "${col_secs[symbol]}" "${col_secs[name]}"
+	fetch_securities "${@}" \
+	| munge_filter_columns "${_sl[symbol]}" "${_sl[name]}"
 }
 
-cmd_csv_time_series()
+cmd_list_time_series()
 {
-	fetch_csv_time_series "${@}"
+	fetch_time_series "${@}"
 }
 
 cmd_plot_time_series()
 {
-	fetch_csv_time_series "${@}" \
-	| munge_csv_metadata_header "${col_ts[id]}" \
-	                            "${col_ts[low]}"\
-	                            "${col_ts[high]}" \
-	| plot_candlestick "${col_ts[id]}" \
-	                   "${col_ts[open]}" \
-	                   "${col_ts[low]}" \
-	                   "${col_ts[high]}" \
-	                   "${col_ts[close]}"
+	fetch_time_series "${@}" \
+	| munge_metadata_prepend_header "${_ts[id]}" \
+	                                "${_ts[low]}" \
+	                                "${_ts[high]}" \
+	| plot_candlestick "${_ts[id]}" \
+	                   "${_ts[open]}" \
+	                   "${_ts[low]}" \
+	                   "${_ts[high]}" \
+	                   "${_ts[close]}"
 }
 
 cmd_plot_ema()
 {
-	fetch_csv_time_series "${@}" \
-	| munge_csv_emas "${col_ts[id]}" \
-	                 "${col_ts[close]}" \
-	                 "${setting[ema-weight]}" \
-	| munge_csv_metadata_header "${col_emas[id]}" "${col_emas[ema]}" \
-	| plot_linespoints "${col_emas[id]}" "${col_emas[ema]}"
+	fetch_time_series "${@}" \
+	| munge_multi_ema "${_ts[id]}" "${_ts[close]}" \
+	                  "${setting[ema-weight]}" \
+	| munge_metadata_prepend_header "${_me[id]}" "${_me[ema]}" \
+	| plot_linespoints "${_me[id]}" "${_me[ema]}"
 }
 
 cmd_plot_ema_interval()
@@ -692,11 +769,9 @@ cmd_plot_ema_interval()
 		weights+=("${w}")
 	done
 
-	fetch_csv_time_series "${@}" \
-	| munge_csv_emas "${col_ts[id]}" "${col_ts[close]}" "${weights[@]}" \
-	| plot_dgrid3d "${col_emas[id]}" \
-	               "${col_emas[weight]}" \
-	               "${col_emas[ema]}" 
+	fetch_time_series "${@}" \
+	| munge_multi_ema "${_ts[id]}" "${_ts[close]}" "${weights[@]}" \
+	| plot_dgrid3d "${_me[id]}" "${_me[weight]}" "${_me[ema]}" 
 }
 
 usage()
@@ -722,76 +797,6 @@ usage()
 }
 
 
-### Helper Functions
-#
-
-apikey()
-{
-	local key="${1}"
-	local -A uid=(
-		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
-	)
-
-	pass show "${uid[${key}]}"
-}
-
-## Run command if stdin is non-empty
-#
-# @param  <1>    Command
-# @params [2..]  Command arguments
-ifstdin()
-{
-	local stdin_first_byte
-	local cmd="${1}"; shift
-	local -a args=("${@}")
-
-	stdin_first_byte=$( dd bs=1 count=1 2>/dev/null \
-	                  | od --format=o1 --address-radix=n \
-	                  | sed 's/^\s\+//' )
-
-	if [[ -z "${stdin_first_byte}" ]]; then
-		return "${error[stdin-empty]}"
-	else
-		( printf '%b' "\\${stdin_first_byte}"
-		  cat ) \
-		| "${cmd}" "${args[@]}"
-	fi
-}
-
-## Build a reverse hash from an array
-#
-# Suppose we have the array
-#
-#     typeset -a array=(foo bar baz),
-#
-# this function produces an array equivalent to
-#
-#     typeset -A rhash=(
-#             [foo]=0
-#             [bar]=1
-#             [baz]=2
-#     ).
-#
-# The reverse hash allows for efficiently fetching the index of an element in
-# the original array. Suppose we wish to know the index of 'bar', we can avoid
-# iterating over 'array[@]' and just fetch 'rhash[bar]'.
-#
-# @param <1>  Data array name
-# @param <2>  Reverse hash array name
-_rhash()
-{
-	local -n array="${1}"
-	local rhash="${2}"
-
-	eval "${rhash}"'=('"$(
-		local i
-		for i in "${!array[@]}"; do
-			printf '[%s]=%s\n' "${array[i]}" "${i}"
-		done
-	)"')'
-}
-
-
 ### Main UI and Options Processing
 #
 
@@ -802,16 +807,16 @@ main()
 		return "${error[bad-cmd]}"
 	fi
 
-	_rhash cols_ts col_ts
-	_rhash cols_emas col_emas
-	_rhash cols_secs col_secs
+	mkrhash _ts columns_time_series
+	mkrhash _me columns_multi_ema
+	mkrhash _sl columns_securities_list
 
 	local cmd="${1}"
 	shift
 
 	case "${cmd}" in
-		list-secs) cmd_csv_securities "${@}";;
-		list-ts) cmd_csv_time_series "${@}";;
+		list-secs) cmd_list_securities "${@}";;
+		list-ts) cmd_list_time_series "${@}";;
 		plot-ts) cmd_plot_time_series "${@}";;
 		plot-ema) cmd_plot_ema "${@}";;
 		plot-ema-int) cmd_plot_ema_interval "${@}";;
