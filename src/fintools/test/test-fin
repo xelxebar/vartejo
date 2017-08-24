@@ -28,7 +28,24 @@ test_ifstdin()
 	[[ "${output}" == "${input}" ]]
 }
 
-test_mkrhash() { return; }
+test_mkrhash()
+{
+	local -A hashmap=()
+	local -a full_array=( 'foo' 'bar' 'baz')
+	# shellcheck disable=SC2034
+	local -a empty_array=()
+
+	mkrhash hashmap empty_array
+	[[ ${#hashmap[@]} -eq 0 ]]
+
+	local i
+	mkrhash hashmap full_array
+	[[ ${#hashmap[@]} -eq ${#full_array[@]} ]]
+	for i in "${!full_array[@]}"; do
+		[[ "${hashmap["${full_array[i]}"]}" == "${i}" ]]
+	done
+}
+
 test_sortcols() { return; }
 
 test_fetch_csv_time_series() { return; }
