@@ -5,7 +5,17 @@ shopt -s -o errexit nounset pipefail
 . "$(dirname "${0}")/../fin"
 
 
-test_apikey() { return; }
+test_apikey()
+{
+	local apikey
+
+	! apikey="$(apikey '__NONEXISTENT_KEY__' 2>/dev/null)" 
+	[[ "${apikey}" == "" ]]
+
+	apikey="$(apikey 'alphavantage.co')"
+	[[ "${apikey}" != "" ]]
+}
+
 test_ifstdin() { return; }
 test_mkrhash() { return; }
 test_sortcols() { return; }
