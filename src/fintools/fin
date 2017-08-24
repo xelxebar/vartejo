@@ -214,7 +214,7 @@ sortcols()
 	done
 
 	for col in "${outcols[@]}"; do
-		if [[ "${col}" = "__EMPTY__" ]]; then
+		if [[ "${col}" == "__EMPTY__" ]]; then
 			colspec+="\"\","
 		else
 			colspec+="\$$((col + 1)),"
@@ -835,6 +835,6 @@ main()
 	esac
 }
 
-if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	main "${@}"
 fi
