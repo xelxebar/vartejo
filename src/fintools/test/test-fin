@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+shopt -s -o errexit nounset pipefail
 
+# shellcheck source=fin
 . "$(dirname "${0}")/../fin"
 
 
@@ -43,6 +44,7 @@ test_usage() { return; }
 # non-zero. This shouldn't be called directly but instead trap on EXIT.
 print_backtrace()
 {
+	# shellcheck disable=SC2181
 	if [[ $? -ne 0 ]]; then
 		local i
 		for i in $(seq 1 $(( ${#FUNCNAME[@]} - 1 ))); do
