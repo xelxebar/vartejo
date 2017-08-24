@@ -540,7 +540,8 @@ plot_candlestick()
 	IFS="${sep}" read -r _ ymax
 	IFS= read -r
 
-	local vrange=$(bc <<<"${ymax} - ${ymin}")
+	local vrange
+	vrange=$(bc <<<"${ymax} - ${ymin}")
 	ymin=$(bc <<<"${ymin} - ${vrange} * ${pad}")
 	ymax=$(bc <<<"${ymax} + ${vrange} * ${pad}")
 
@@ -587,7 +588,8 @@ plot_linespoints()
 	IFS="${sep}" read -r ymin ymax
 	IFS= read -r
 
-	local vrange=$(bc <<<"${ymax} - ${ymin}")
+	local vrange
+	vrange=$(bc <<<"${ymax} - ${ymin}")
 	ymin=$(bc <<<"${ymin} - ${vrange} * ${pad}")
 	ymax=$(bc <<<"${ymax} + ${vrange} * ${pad}")
 
