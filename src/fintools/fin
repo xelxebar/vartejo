@@ -192,6 +192,39 @@ mkrhash()
 	)"')'
 }
 
+## Sort columns of internal CSV data
+#
+# @param <1>  Hashmap of column names to input order
+# @param <2>  Array of sorted column names
+# @param <3>  Output column separator
+sortcols()
+{
+	local -n incol="${1}"
+	local -n colnames="${2}"
+	local sep="${3}"
+	local -a outcols=()
+	local colspec=""
+
+	local col
+	for col in "${colnames[@]}"; do
+		outcols+=("${incol[${col}]-__EMPTY__}")
+	done
+
+	for col in "${outcols[@]}"; do
+		if [[ "${col}" = "__EMPTY__" ]]; then
+			colspec+="\"\","
+		else
+			colspec+="\$$((col + 1)),"
+		fi
+	done
+	colspec="${colspec%,}"
+
+	awk --field-separator "${sep}" "
+		BEGIN { OFS=\"${sep}\" }
+		{ print(${colspec}) }
+	"
+}
+
 
 ### Vendor-Independent API
 #
@@ -329,8 +362,8 @@ fetch_raw_time_series_alphavantage_co()
 postfetch_alphavantage_co_time_series()
 {
 	local sep="${setting[csv-separator]}"
-	local awkcols=""
-	local -A rawcol=(
+	# shellcheck disable=SC2034
+	local -A rawcols=(
 		[id]=0
 		[date]=1
 		[open]=2
@@ -340,25 +373,12 @@ postfetch_alphavantage_co_time_series()
 		[volume]=6
 	)
 
-	local col
-	for col in "${columns_times_series[@]}"; do
-		if [[ -n "${rawcol[${col}]-}" ]]; then
-			awkcols+="\$$((rawcol["${col}"] + 1)),"
-		else
-			awkcols+="\"${sep}\","
-		fi
-	done
-	awkcols="${awkcols%,}"
-
 	IFS= read -r
 	sed "s/\\r$//;
 	     s/,/${sep}/g" \
 	| tac \
 	| nl --number-width=1 --number-separator="${sep}" \
-	| awk --field-separator "${sep}" "
-		BEGIN { OFS=\"${sep}\" }
-		{ print(${awkcols}) }
-	"
+	| sortcols rawcols columns_time_series "${sep}"
 }
 
 ## Fetch raw company list in stock exchanges from nasdaq.com
@@ -383,8 +403,8 @@ fetch_raw_securities_nasdaq_com()
 postfetch_securities_nasdaq_com()
 {
 	local sep="${setting[csv-separator]}"
-	local awkcols=""
-	local -A rawcol=(
+	# shellcheck disable=SC2034
+	local -A rawcols=(
 		[id]=0
 		[symbol]=1
 		[name]=2
@@ -396,25 +416,12 @@ postfetch_securities_nasdaq_com()
 		[quote]=8
 	)
 
-	local col
-	for col in "${columns_securities_list[@]}"; do
-		if [[ -n "${rawcol[${col}]-}" ]]; then
-			awkcols+="\$$((rawcol["${col}"] + 1)),"
-		else
-			awkcols+="\"${sep}\","
-		fi
-	done
-	awkcols="${awkcols%,}"
-
 	IFS= read -r
 	sed 's/^"//;
 	     s/",\r//;
 	     s/","/'"${sep}"'/g;' \
 	| nl --number-width=1 --number-separator="${sep}" \
-	| awk --field-separator "${sep}" "
-		BEGIN { OFS=\"${sep}\" }
-		{ print(${awkcols}) }
-	"
+	| sortcols rawcols columns_securities_list "${sep}"
 }
 
 
