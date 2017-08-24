@@ -16,7 +16,18 @@ test_apikey()
 	[[ "${apikey}" != "" ]]
 }
 
-test_ifstdin() { return; }
+test_ifstdin()
+{
+	local input="some input"
+	local output
+
+	! output=$(printf '' | ifstdin true)
+	[[ -z "${output}" ]]
+
+	output=$(printf '%s' "${input}" | ifstdin cat)
+	[[ "${output}" == "${input}" ]]
+}
+
 test_mkrhash() { return; }
 test_sortcols() { return; }
 
