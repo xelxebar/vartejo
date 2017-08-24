@@ -540,8 +540,9 @@ plot_candlestick()
 	IFS="${sep}" read -r _ ymax
 	IFS= read -r
 
-	ymin=$(bc <<<"${ymin} - (${ymax}-${ymin})*${pad}")
-	ymax=$(bc <<<"${ymax} + (${ymax}-${ymin})*${pad}")
+	local vrange=$(bc <<<"${ymax} - ${ymin}")
+	ymin=$(bc <<<"${ymin} - ${vrange} * ${pad}")
+	ymax=$(bc <<<"${ymax} + ${vrange} * ${pad}")
 
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
@@ -586,8 +587,9 @@ plot_linespoints()
 	IFS="${sep}" read -r ymin ymax
 	IFS= read -r
 
-	ymin=$(bc <<<"${ymin} - (${ymax}-${ymin})*${pad}")
-	ymax=$(bc <<<"${ymax} + (${ymax}-${ymin})*${pad}")
+	local vrange=$(bc <<<"${ymax} - ${ymin}")
+	ymin=$(bc <<<"${ymin} - ${vrange} * ${pad}")
+	ymax=$(bc <<<"${ymax} + ${vrange} * ${pad}")
 
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
