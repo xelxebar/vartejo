@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+shopt -s -o errexit nounset pipefail
 
 # MIT License
 # 
