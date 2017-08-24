@@ -4,33 +4,37 @@ set -euo pipefail
 . "$(dirname "${0}")/../fin"
 
 
+test_apikey() { return; }
+test_ifstdin() { return; }
+test_mkrhash() { return; }
+test_sortcols() { return; }
+
+test_fetch_csv_time_series() { return; }
+test_fetch_csv_securities() { return; }
+
+test_fetch_csv_time_series_alphavantage_co() { return; }
+test_fetch_csv_securities_nasdaq_com() { return; }
+
 test_fetch_raw_time_series_alphavantage_co() { return; }
 test_postfetch_csv_alphavantage_co_time_series() { return; }
 
-test_fetch_raw_exchange_company_list_nasdaq_com() { return; }
-test_postfetch_csv_exchange_company_list_nasdaq_com() { return; }
+test_fetch_raw_securities_nasdaq_com() { return; }
+test_postfetch_csv_securities_nasdaq_com() { return; }
 
-test_fetch_csv_time_series() { return; }
-test_fetch_csv_exchange_company_list() { return; }
-
-test_fetch_csv_time_series_alphavantage_co() { return; }
-test_fetch_csv_exchange_company_list_nasdaq_com() { return; }
-
-test_munge_csv_prepend_header() { return; }
+test_munge_csv_filter_columns() { return; }
+test_munge_csv_metadata_header() { return; }
 test_munge_csv_emas() { return; }
 
 test_plot_candlestick() { return; }
 test_plot_linespoints() { return; }
 test_plot_dgrid3d() { return; }
 
+test_cmd_csv_securities() { return; }
 test_cmd_csv_time_series() { return; }
-test_cmd_plot_candle() { return; }
+test_cmd_plot_time_series() { return; }
 test_cmd_plot_ema() { return; }
-test_cmd_plot_emas() { return; }
-
+test_cmd_plot_ema_interval() { return; }
 test_usage() { return; }
-test_apikey() { return; }
-test_ifstdin() { return; }
 
 
 ## Print function backtrace
