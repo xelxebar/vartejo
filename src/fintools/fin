@@ -84,7 +84,7 @@ readonly -A setting=(
 ## Data Representation
 #
 
-typeset -A _ts  # rhash of 'columns_time_series'
+declare -A _ts  # rhash of 'columns_time_series'
 readonly -a columns_time_series=(
 	'id'
 	'date'
@@ -95,14 +95,14 @@ readonly -a columns_time_series=(
 	'volume'
 )
 
-typeset -A _me  # rhash of 'columns_multi_ema'
+declare -A _me  # rhash of 'columns_multi_ema'
 readonly -a columns_multi_ema=(
 	'id'
 	'weight'
 	'ema'
 )
 
-typeset -A _sl  # rhash of 'columns_securities_list'
+declare -A _sl  # rhash of 'columns_securities_list'
 readonly -a columns_securities_list=(
 	'id'
 	'symbol'
@@ -166,11 +166,11 @@ ifstdin()
 #
 # Suppose we have the array
 #
-#     typeset -a array=(foo bar baz),
+#     declare -a array=(foo bar baz),
 #
 # this function produces an array equivalent to
 #
-#     typeset -A rhash=(
+#     declare -A rhash=(
 #             [foo]=0
 #             [bar]=1
 #             [baz]=2
