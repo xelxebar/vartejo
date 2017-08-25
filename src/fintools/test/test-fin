@@ -5,15 +5,25 @@ shopt -s -o errexit nounset pipefail
 . "$(dirname "${0}")/../fin"
 
 
-test_apikey()
+test_apikey_good_key()
+{
+	local apikey
+
+	apikey="$(apikey 'alphavantage.co')"
+	[[ "${apikey}" != "" ]]
+}
+
+test_apikey_bad_key()
 {
 	local apikey
 
 	! apikey="$(apikey '__NONEXISTENT_KEY__' 2>/dev/null)" 
 	[[ "${apikey}" == "" ]]
+}
 
-	apikey="$(apikey 'alphavantage.co')"
-	[[ "${apikey}" != "" ]]
+test_apikey_null_key()
+{
+	! apikey 2>/dev/null
 }
 
 test_ifstdin()
