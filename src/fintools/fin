@@ -222,10 +222,12 @@ sortcols()
 	done
 	colspec="${colspec%,}"
 
-	awk --field-separator "${sep}" "
-		BEGIN { OFS=\"${sep}\" }
-		{ print(${colspec}) }
-	"
+	if [[ -n "${colspec}" ]]; then
+		ifstdin awk --field-separator "${sep}" "
+			BEGIN { OFS=\"${sep}\" }
+			{ print(${colspec}) }
+		"
+	fi
 }
 
 
