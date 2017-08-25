@@ -360,14 +360,18 @@ fetch_raw_time_series_alphavantage_co()
 	local -A field=(
 	        [apikey]="${1}"
 		[symbol]="${2}"
-	        [function]="${function[${3-default}]}"
-	        [outputsize]="${outputsize[${4-default}]}"
-	        [interval]="${interval[${5-default}]}"
-	        [datatype]="${datatype[${6-default}]}"
+	        [function]="${function[${3-default}]-__BAD__}"
+	        [outputsize]="${outputsize[${4-default}]-__BAD__}"
+	        [interval]="${interval[${5-default}]-__BAD__}"
+	        [datatype]="${datatype[${6-default}]-__BAD__}"
 	)
 
-	for f in "${!field[@]}"; do
-		query+="&${f}=${field[${f}]}"
+	local param
+	for param in "${!field[@]}"; do
+		local value="${field["${param}"]}"
+		
+		[[ "${value}" != '__BAD__' ]] || return "${error[bad-args]}"
+		query+="&${param}=${value}"
 	done
 	query="${query#&}"
 
