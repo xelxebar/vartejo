@@ -221,7 +221,7 @@ test_isdeclared()
 }
 
 
-## TODO: Implement the following tests
+## Test Function 'fetch_raw_time_series_alphavantage_co'
 #
 
 test_fetch_raw_time_series_alphavantage_co_bad_args()
@@ -245,6 +245,10 @@ test_fetch_raw_time_series_alphavantage_co_bad_args()
 	                                        default default default \
 	                                        __nonexistent_datatype__
 }
+
+
+## TODO: Implement the following tests
+#
 
 test_fetch_raw_securities_nasdaq_com() { return; }
 
