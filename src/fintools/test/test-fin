@@ -5,6 +5,9 @@ shopt -s -o errexit nounset pipefail
 . "$(dirname "${0}")/../fin"
 
 
+## Test Function 'apikey'
+#
+
 test_apikey_good_key()
 {
 	local apikey
@@ -26,6 +29,10 @@ test_apikey_null_key()
 	! apikey 2>/dev/null
 }
 
+
+## Test Function 'ifstdin'
+#
+
 test_ifstdin_nonempty()
 {
 	local input="some input"
@@ -42,6 +49,10 @@ test_ifstdin_empty()
 	! output=$(printf '' | ifstdin true)
 	[[ -z "${output}" ]]
 }
+
+
+## Test Function 'mkrhash'
+#
 
 test_mkrhash_good_args()
 {
@@ -80,6 +91,10 @@ test_mkrhash_nonexistent_hashmap()
 
 	! mkrhash nonexistent_hashmap array
 }
+
+
+## Test Function 'sortcols'
+#
 
 test_sortcols_column_ordering()
 {
@@ -192,6 +207,10 @@ test_sortcols_empty_data()
 	[[ -z "${output}" ]]
 }
 
+
+## Test Function 'isdeclared'
+#
+
 test_isdeclared()
 {
 	# shellcheck disable=SC2034
@@ -221,14 +240,9 @@ test_plot_candlestick() { return; }
 test_plot_linespoints() { return; }
 test_plot_dgrid3d() { return; }
 
-cmd_list_securities() { return; }
-cmd_list_time_series() { return; }
-cmd_plot_time_series() { return; }
-cmd_plot_ema() { return; }
-cmd_plot_ema_interval() { return; }
-usage() { return; }
-main() { return; }
 
+## Testing Infrastructure
+#
 
 ## Print function backtrace
 # 
