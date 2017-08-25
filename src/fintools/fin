@@ -470,7 +470,7 @@ munge_filter_columns()
 # above.
 #
 # @params [1..]  Columns to operate on
-munge_metadata_prepend_header()
+munge_metadata_header()
 {
 	local -a hcols=("${@}")
 	local sep="${setting[csv-separator]}"
@@ -745,9 +745,7 @@ cmd_list_time_series()
 cmd_plot_time_series()
 {
 	fetch_time_series "${@}" \
-	| munge_metadata_prepend_header "${_ts[id]}" \
-	                                "${_ts[low]}" \
-	                                "${_ts[high]}" \
+	| munge_metadata_header "${_ts[id]}" "${_ts[low]}" "${_ts[high]}" \
 	| plot_candlestick "${_ts[id]}" \
 	                   "${_ts[open]}" \
 	                   "${_ts[low]}" \
@@ -760,7 +758,7 @@ cmd_plot_ema()
 	fetch_time_series "${@}" \
 	| munge_multi_ema "${_ts[id]}" "${_ts[close]}" \
 	                  "${setting[ema-weight]}" \
-	| munge_metadata_prepend_header "${_me[id]}" "${_me[ema]}" \
+	| munge_metadata_header "${_me[id]}" "${_me[ema]}" \
 	| plot_linespoints "${_me[id]}" "${_me[ema]}"
 }
 
