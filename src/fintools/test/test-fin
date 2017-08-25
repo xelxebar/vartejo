@@ -201,17 +201,17 @@ test_isdeclared()
 	! isdeclared nonexistent_variable
 }
 
-test_fetch_time_series() { return; }
-test_fetch_securities() { return; }
-
-test_fetch_time_series_alphavantage_co() { return; }
-test_fetch_securities_nasdaq_com() { return; }
-
 test_fetch_raw_time_series_alphavantage_co() { return; }
 test_fetch_raw_securities_nasdaq_com() { return; }
 
 test_postfetch_alphavantage_co_time_series() { return; }
 test_postfetch_securities_nasdaq_com() { return; }
+
+test_fetch_time_series_alphavantage_co() { return; }
+test_fetch_securities_nasdaq_com() { return; }
+
+test_fetch_time_series() { return; }
+test_fetch_securities() { return; }
 
 test_munge_filter_columns() { return; }
 test_munge_metadata_header() { return; }
