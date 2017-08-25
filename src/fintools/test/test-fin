@@ -192,7 +192,14 @@ test_sortcols_empty_data()
 	[[ -z "${output}" ]]
 }
 
-test_isdeclared() { return; }
+test_isdeclared()
+{
+	# shellcheck disable=SC2034
+	local variable
+
+	isdeclared variable
+	! isdeclared nonexistent_variable
+}
 
 test_fetch_time_series() { return; }
 test_fetch_securities() { return; }
