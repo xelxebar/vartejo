@@ -298,7 +298,7 @@ fetch_time_series_alphavantage_co()
 	                                      "${outputsize}" \
 	                                      "${interval}" \
 	                                      csv \
-	| postfetch_alphavantage_co_time_series
+	| postfetch_time_series_alphavantage_co
 }
 
 ## Fetch and postprocess exchange company list data from nasdaq.com
@@ -379,7 +379,7 @@ fetch_raw_time_series_alphavantage_co()
 }
 
 ## Postprocess alphavantage.co CSV result
-postfetch_alphavantage_co_time_series()
+postfetch_time_series_alphavantage_co()
 {
 	local sep="${setting[csv-separator]}"
 	# shellcheck disable=SC2034
