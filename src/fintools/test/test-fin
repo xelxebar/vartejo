@@ -124,6 +124,8 @@ test_sortcols_empty_data()
 	[[ -z "${output}" ]]
 }
 
+test_isdeclared() { return; }
+
 test_fetch_time_series() { return; }
 test_fetch_securities() { return; }
 

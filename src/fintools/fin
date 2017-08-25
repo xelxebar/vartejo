@@ -230,6 +230,15 @@ sortcols()
 	fi
 }
 
+## Check if variable exists
+#
+# @param <1>  Variable name
+isdeclared()
+{
+	local varname="${1}"
+	declare -p "${varname}" >/dev/null 2>&1
+}
+
 
 ### Vendor-Independent API
 #
