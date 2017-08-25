@@ -202,15 +202,15 @@ mkrhash()
 # @param <3>  Output column separator
 sortcols()
 {
-	local -n incol="${1}"
-	local -n colnames="${2}"
+	local -n __incol__="${1}"
+	local -n __colnames__="${2}"
 	local sep="${3}"
 	local -a outcols=()
 	local colspec=""
 
 	local col
-	for col in "${colnames[@]}"; do
-		outcols+=("${incol[${col}]-__EMPTY__}")
+	for col in "${__colnames__[@]}"; do
+		outcols+=("${__incol__[${col}]-__EMPTY__}")
 	done
 
 	for col in "${outcols[@]}"; do
