@@ -26,16 +26,21 @@ test_apikey_null_key()
 	! apikey 2>/dev/null
 }
 
-test_ifstdin()
+test_ifstdin_nonempty()
 {
 	local input="some input"
 	local output
 
-	! output=$(printf '' | ifstdin true)
-	[[ -z "${output}" ]]
-
 	output=$(printf '%s' "${input}" | ifstdin cat)
 	[[ "${output}" == "${input}" ]]
+}
+
+test_ifstdin_empty()
+{
+	local output
+
+	! output=$(printf '' | ifstdin true)
+	[[ -z "${output}" ]]
 }
 
 test_mkrhash()
