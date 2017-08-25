@@ -220,7 +220,32 @@ test_isdeclared()
 	! isdeclared nonexistent_variable
 }
 
-test_fetch_raw_time_series_alphavantage_co() { return; }
+
+## TODO: Implement the following tests
+#
+
+test_fetch_raw_time_series_alphavantage_co_bad_args()
+{
+	local apikey='dummy'
+	local symbol=LF
+
+	! fetch_raw_time_series_alphavantage_co
+	! fetch_raw_time_series_alphavantage_co "${apikey}"
+	! fetch_raw_time_series_alphavantage_co '' "${symbol}"
+	! fetch_raw_time_series_alphavantage_co '' ''
+	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
+	                                        __nonexistent_function__
+	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
+	                                        default \
+	                                        __nonexistent_outputsize__
+	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
+	                                        default default \
+	                                        __nonexistent_interval__
+	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
+	                                        default default default \
+	                                        __nonexistent_datatype__
+}
+
 test_fetch_raw_securities_nasdaq_com() { return; }
 
 test_postfetch_alphavantage_co_time_series() { return; }
