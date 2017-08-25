@@ -414,7 +414,11 @@ fetch_raw_securities_nasdaq_com()
 		[NYSE]='NYSE'
 		[AMEX]='AMEX'
 	)
-	local query="render=download&exchange=${index[${symbol}]}"
+	local query='render=download'
+	local exchange="${index["${symbol}"]-__BAD__}"
+
+	[[ "${exchange}" != '__BAD__' ]] || return "${error[bad-args]}"
+	query+="&exchange=${exchange}"
 
 	curl --silent "${url}/${path}?${query}"
 }
