@@ -166,7 +166,7 @@ print_backtrace()
 
 ## Run tests in local file
 #
-# Runs all functions in this file that begin with the string 'test'.
+# Runs all functions in caller's file that begin with the string 'test'.
 run_tests()
 {
 	local file="${0}"
