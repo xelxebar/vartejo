@@ -43,22 +43,42 @@ test_ifstdin_empty()
 	[[ -z "${output}" ]]
 }
 
-test_mkrhash()
+test_mkrhash_good_args()
 {
 	local -A hashmap=()
-	local -a full_array=( 'foo' 'bar' 'baz')
+	local -a array=( 'foo' 'bar' 'baz')
+
+	local i
+	mkrhash hashmap array
+	[[ ${#hashmap[@]} -eq ${#array[@]} ]]
+	for i in "${!array[@]}"; do
+		[[ "${hashmap["${array[i]}"]}" == "${i}" ]]
+	done
+}
+
+test_mkrhash_empty_array()
+{
+	local -A hashmap=()
 	# shellcheck disable=SC2034
 	local -a empty_array=()
 
 	mkrhash hashmap empty_array
 	[[ ${#hashmap[@]} -eq 0 ]]
+}
 
-	local i
-	mkrhash hashmap full_array
-	[[ ${#hashmap[@]} -eq ${#full_array[@]} ]]
-	for i in "${!full_array[@]}"; do
-		[[ "${hashmap["${full_array[i]}"]}" == "${i}" ]]
-	done
+test_mkrhash_nonexistent_array()
+{
+	local -A hashmap=()
+
+	mkrhash hashmap nonexistent_array
+	[[ ${#hashmap[@]} -eq 0 ]]
+}
+
+test_mkrhash_nonexistent_hashmap()
+{
+	local -a array=( 'foo' 'bar' 'baz')
+
+	! mkrhash nonexistent_hashmap array
 }
 
 test_sortcols_nonpathological_input()
@@ -145,6 +165,14 @@ test_munge_emas() { return; }
 test_plot_candlestick() { return; }
 test_plot_linespoints() { return; }
 test_plot_dgrid3d() { return; }
+
+cmd_list_securities() { return; }
+cmd_list_time_series() { return; }
+cmd_plot_time_series() { return; }
+cmd_plot_ema() { return; }
+cmd_plot_ema_interval() { return; }
+usage() { return; }
+main() { return; }
 
 
 ## Print function backtrace

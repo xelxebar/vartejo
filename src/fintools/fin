@@ -187,6 +187,8 @@ mkrhash()
 	local rhash="${1}"
 	local -n __array__="${2}"
 
+	isdeclared "${rhash}" || return "${error[bad-args]}"
+
 	eval "${rhash}"'=('"$(
 		local i
 		for i in "${!__array__[@]}"; do
