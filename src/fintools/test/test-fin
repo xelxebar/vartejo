@@ -247,10 +247,17 @@ test_fetch_raw_time_series_alphavantage_co_bad_args()
 }
 
 
-## TODO: Implement the following tests
+## Test Function 'fetch_raw_securities_nasdaq_com'
 #
 
-test_fetch_raw_securities_nasdaq_com() { return; }
+test_fetch_raw_securities_nasdaq_com_bad_args()
+{
+	! fetch_raw_securities_nasdaq_com __nonexistent_symbol__
+}
+
+
+## TODO: Implement the following tests
+#
 
 test_postfetch_alphavantage_co_time_series() { return; }
 test_postfetch_securities_nasdaq_com() { return; }
