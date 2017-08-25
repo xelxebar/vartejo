@@ -185,12 +185,12 @@ ifstdin()
 mkrhash()
 {
 	local rhash="${1}"
-	local -n array="${2}"
+	local -n __array__="${2}"
 
 	eval "${rhash}"'=('"$(
 		local i
-		for i in "${!array[@]}"; do
-			printf '[%s]=%s\n' "${array[i]}" "${i}"
+		for i in "${!__array__[@]}"; do
+			printf '[%s]=%s\n' "${__array__[i]}" "${i}"
 		done
 	)"')'
 }
