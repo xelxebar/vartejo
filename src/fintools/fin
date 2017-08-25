@@ -131,12 +131,12 @@ readonly -A error=(
 # @param <1>  Key ID
 apikey()
 {
-	local key="${1}"
+	local key="${1-__EMPTY_KEY_ID__}"
 	local -A uid=(
 		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
 	)
 
-	pass show "${uid[${key}]}"
+	pass show "${uid[${key}]-__EMPTY_KEY_ID__}"
 }
 
 ## Run command if stdin is non-empty
