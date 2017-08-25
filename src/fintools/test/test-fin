@@ -81,7 +81,31 @@ test_mkrhash_nonexistent_hashmap()
 	! mkrhash nonexistent_hashmap array
 }
 
-test_sortcols_nonpathological_input()
+test_sortcols_column_ordering()
+{
+	# shellcheck disable=SC2034
+	local -a colnames=( 'foo' 'bar' 'baz' )
+	# shellcheck disable=SC2034
+	local -A columns=(
+		[baz]=0
+		[foo]=1
+		[bar]=2
+	)
+	local column_separator=','
+	local text
+
+	text="$(cat <<- EOF
+		baz001,foo001,bar001
+		baz002,foo002,bar002
+		baz003,foo003,bar003
+	EOF
+	)"
+	echo "${text}" \
+	| sortcols columns colnames "${column_separator}" \
+	| [[ "$(head -1)" == "foo001,bar001,baz001" ]]
+}
+
+test_sortcols_column_insertion()
 {
 	# shellcheck disable=SC2034
 	local -a colnames=( 'foo' 'bar' 'baz' )
@@ -94,14 +118,38 @@ test_sortcols_nonpathological_input()
 	local text
 
 	text="$(cat <<- EOF
-		foo001,baz001
-		foo002,baz002
-		foo003,baz003
+		baz001,foo001
+		baz002,foo002
+		baz003,foo003
 	EOF
 	)"
 	echo "${text}" \
 	| sortcols columns colnames "${column_separator}" \
-	| [[ "$(head -1)" == "baz001,,foo001" ]]
+	| [[ "$(head -1)" == "foo001,,baz001" ]]
+}
+
+test_sortcols_column_deletion()
+{
+	# shellcheck disable=SC2034
+	local -a colnames=( 'foo' 'baz' )
+	# shellcheck disable=SC2034
+	local -A columns=(
+		[baz]=0
+		[foo]=1
+		[bar]=2
+	)
+	local column_separator=','
+	local text
+
+	text="$(cat <<- EOF
+		baz001,foo001,bar001
+		baz002,foo002,bar002
+		baz003,foo003,bar003
+	EOF
+	)"
+	echo "${text}" \
+	| sortcols columns colnames "${column_separator}" \
+	| [[ "$(head -1)" == "foo001,baz001" ]]
 }
 
 test_sortcols_empty_sort_specification()
