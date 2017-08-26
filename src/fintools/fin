@@ -550,8 +550,8 @@ munge_metadata_header()
 			local min="${mins[i]}"
 			local max="${maxs[i]}"
 
-			mins[i]=$(dc -e "[${f}]sM ${min}d ${f} <Mp")
-			maxs[i]=$(dc -e "[${f}]sM ${max}d ${f} >Mp")
+			mins[i]=$(dc --expression="[${f}]sM ${min}d ${f} <Mp")
+			maxs[i]=$(dc --expression="[${f}]sM ${max}d ${f} >Mp")
 		done
 
 		( IFS="${sep}"
