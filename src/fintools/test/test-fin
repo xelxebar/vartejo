@@ -277,10 +277,29 @@ test_postfetch_time_series_alphavantage_co_empty_input()
 }
 
 
+## Test Function 'postfetch_securities_nasdaq_com'
+
+test_postfetch_securities_nasdaq_com_well_formed_output()
+{
+	local test_data="${testdir}/res/raw/NYSE-nasdaq.com.csv"
+	local sep="${setting[csv-separator]}"
+
+	postfetch_securities_nasdaq_com <"${test_data}" \
+	| [[ "$(awk --field-separator "${sep}" 'END {print NF}')" \
+	     -eq "${#columns_securities_list[@]}" ]]
+}
+
+test_postfetch_securities_nasdaq_com_empty_input()
+{
+	printf '' \
+	| postfetch_securities_nasdaq_com \
+	| [[ -z "$(cat)" ]]
+}
+
+
 ## TODO: Implement the following tests
 #
 
-test_postfetch_securities_nasdaq_com() { return; }
 
 test_fetch_time_series_alphavantage_co() { return; }
 test_fetch_securities_nasdaq_com() { return; }
