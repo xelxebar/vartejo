@@ -145,18 +145,14 @@ apikey()
 # @params [2..]  Command arguments
 ifstdin()
 {
-	local stdin_first_byte
 	local cmd="${1}"; shift
 	local -a args=("${@}")
+	local line
+	
+	IFS= read -r line || true
 
-	stdin_first_byte=$( dd bs=1 count=1 2>/dev/null \
-	                  | od --format=o1 --address-radix=n \
-	                  | sed 's/^\s\+//' )
-
-	if [[ -z "${stdin_first_byte}" ]]; then
-		return
-	else
-		( printf '%b' "\\${stdin_first_byte}"
+	if [[ -n "${line}" ]]; then
+		( printf '%s\n' "${line}"
 		  cat ) \
 		| "${cmd}" "${args[@]}"
 	fi
