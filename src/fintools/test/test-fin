@@ -276,6 +276,13 @@ test_postfetch_time_series_alphavantage_co_empty_input()
 	| [[ -z "$(cat)" ]]
 }
 
+test_postfetch_time_series_alphavantage_co_upstream_error()
+{
+	local test_data="${testdir}/res/raw/error-alphavantage.co.json"
+
+	! postfetch_time_series_alphavantage_co <"${test_data}" 2>/dev/null
+}
+
 
 ## Test Function 'postfetch_securities_nasdaq_com'
 
@@ -299,7 +306,6 @@ test_postfetch_securities_nasdaq_com_empty_input()
 
 ## TODO: Implement the following tests
 #
-
 
 test_fetch_time_series_alphavantage_co() { return; }
 test_fetch_securities_nasdaq_com() { return; }
