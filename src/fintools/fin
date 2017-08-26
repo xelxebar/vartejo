@@ -869,10 +869,6 @@ main()
 		return "${error[bad-cmd]}"
 	fi
 
-	mkrhash _ts columns_time_series
-	mkrhash _me columns_multi_ema
-	mkrhash _sl columns_securities_list
-
 	local cmd="${1}"
 	shift
 
@@ -886,6 +882,12 @@ main()
 		*) usage;;
 	esac
 }
+
+
+mkrhash _ts columns_time_series
+mkrhash _me columns_multi_ema
+mkrhash _sl columns_securities_list
+
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	main "${@}"
