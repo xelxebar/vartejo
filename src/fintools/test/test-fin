@@ -321,10 +321,17 @@ test_fetch_time_series_alphavantage_co_bad_args()
 }
 
 
-## TODO: Implement the following tests
+## Test Function 'fetch_securities_nasdaq_com'
 #
 
-test_fetch_securities_nasdaq_com() { return; }
+test_fetch_securities_nasdaq_com_bad_args()
+{
+	! fetch_securities_nasdaq_com __nonexistent_symbol__
+}
+
+
+## TODO: Implement the following tests
+#
 
 test_fetch_time_series() { return; }
 test_fetch_securities() { return; }
