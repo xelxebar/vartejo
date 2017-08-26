@@ -428,10 +428,76 @@ test_munge_metadata_header_empty_column_list()
 }
 
 
-## TODO: Implement the following tests
+## Test Function 'munge_multi_ema'
 #
 
-test_munge_emas() { return; }
+test_munge_multi_ema_good_args()
+{
+	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local ema_data="${testdir}/res/multi-ema/LF-daily-100-0.8.csv"
+	local idcol="${_ts[id]}"
+	local datacol="${_ts[close]}"
+	local w="${setting[ema-weight]}"
+
+	munge_multi_ema "${idcol}" "${datacol}" "${w}" <"${ts_data}" \
+	| [[ "$(cat)" == "$(cat "${ema_data}")" ]]
+}
+
+test_munge_multi_ema_bad_id_column()
+{
+	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local idcol=-1
+	local datacol="${_ts[close]}"
+	local w="${setting[ema-weight]}"
+
+	! munge_multi_ema "${idcol}" "${datacol}" "${w}" <"${ts_data}"
+	! munge_multi_ema "" "${datacol}" "${w}" <"${ts_data}"
+}
+
+test_munge_multi_ema_bad_data_column()
+{
+	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local idcol="${_ts[id]}"
+	local datacol=-1
+	local w="${setting[ema-weight]}"
+
+	! munge_multi_ema "${idcol}" "${datacol}" "${w}" <"${ts_data}"
+	! munge_multi_ema "${idcol}" "" "${w}" <"${ts_data}"
+}
+
+test_munge_multi_ema_bad_weight()
+{
+	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local idcol="${_ts[id]}"
+	local datacol="${_ts[close]}"
+
+	! munge_multi_ema "${idcol}" "${datacol}" -100 <"${ts_data}"
+	! munge_multi_ema "${idcol}" "${datacol}" 100 <"${ts_data}"
+}
+
+test_munge_multi_ema_empty_input()
+{
+	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local idcol="${_ts[id]}"
+	local datacol="${_ts[close]}"
+	local w="${setting[ema-weight]}"
+
+	printf '' \
+	| munge_multi_ema "${idcol}" "${datacol}" "${w}" \
+	| [[ -z "$(cat)" ]]
+}
+
+test_munge_multi_ema_missing_args()
+{
+	local idcol="${_ts[id]}"
+
+	! munge_multi_ema
+	! munge_multi_ema "${idcol}"
+}
+
+
+## TODO: Implement the following tests
+#
 
 test_plot_candlestick() { return; }
 test_plot_linespoints() { return; }
