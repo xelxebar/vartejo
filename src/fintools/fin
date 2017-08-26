@@ -404,8 +404,19 @@ postfetch_time_series_alphavantage_co()
 		[close]=5
 		[volume]=6
 	)
+	local header
+	local errmsg
 
-	IFS= read -r || true
+	IFS= read -r header || true
+
+	if [[ "${header}" == '{' ]]; then
+		IFS= read -r errmsg
+		errmsg=$( printf '%s' "${errmsg}" \
+			 | sed 's/^    "Error Message": "\(.*\)"/\1/' )
+		fail "${error[bad-args]}" "${errmsg}"
+		return
+	fi
+
 	sed "s/\\r$//;
 	     s/,/${sep}/g" \
 	| tac \
