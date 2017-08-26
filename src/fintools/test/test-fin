@@ -330,10 +330,22 @@ test_fetch_securities_nasdaq_com_bad_args()
 }
 
 
+## Test Function 'fetch_time_series'
+
+test_fetch_time_series_bad_args()
+{
+	local symbol='LF'
+
+	! fetch_time_series __nonexistent_symbol__  2>/dev/null
+	! fetch_time_series "${symbol}" __nonexistent_function__
+	! fetch_time_series "${symbol}" default __nonexistent_outputsize__
+	! fetch_time_series "${symbol}" default default \
+	                                __nonexistent_interval__
+}
+
+
 ## TODO: Implement the following tests
 #
-
-test_fetch_time_series() { return; }
 test_fetch_securities() { return; }
 
 test_munge_filter_columns() { return; }
