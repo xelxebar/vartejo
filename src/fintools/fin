@@ -147,12 +147,15 @@ fail()
 # @param <1>  Key ID
 apikey()
 {
-	local key="${1-__EMPTY_KEY_ID__}"
-	local -A uid=(
-		[alphavantage.co]="co/alphavantage/x@wilsonb.com/api-key"
+	local id="${1-__BAD__}"
+	local -A uri=(
+		[alphavantage.co]="res/apikey/alphavantage.co.key"
 	)
+	local path="${uri["${id}"]-__BAD__}"
 
-	pass show "${uid[${key}]-__EMPTY_KEY_ID__}"
+	[[ "${path}" != '__BAD__' ]] ||  return "${error[bad-args]}"
+
+	cat "${path}"
 }
 
 ## Run command if stdin is non-empty
