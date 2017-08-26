@@ -388,10 +388,49 @@ test_munge_filter_columns_empty_column_list()
 }
 
 
+## Test Function 'munge_metadata_header'
+#
+
+test_munge_metadata_header_format()
+{
+	local data="${testdir}/res/time-series/LF-daily-100.csv"
+	local header="${testdir}/res/header/LF-daily-100-maximal.csv"
+	local -a hcols=(
+		"${_ts[id]}"
+		"${_ts[open]}"
+		"${_ts[high]}"
+		"${_ts[low]}"
+		"${_ts[close]}"
+		"${_ts[volume]}"
+	)
+
+	munge_metadata_header "${hcols[@]}" <"${data}" \
+	| head --lines=$(( ${#hcols[@]} + 1 )) \
+	| [[ "$(cat)" == "$(cat "${header}")" ]] \
+	|| [[ $? -eq ${ERRPIPE} ]]
+}
+
+test_munge_metadata_header_empty_column_list()
+{
+	local data="${testdir}/res/time-series/LF-daily-100.csv"
+	local header="${testdir}/res/header/LF-daily-100-minimal.csv"
+	local -a hcols=()
+
+	munge_metadata_header "${hcols[@]}" <"${data}" \
+	| head --lines=$(( ${#hcols[@]} + 1 )) \
+	| [[ "$(cat)" == "$(cat "${header}")" ]] \
+	|| [[ $? -eq ${ERRPIPE} ]]
+
+	munge_metadata_header <"${data}" \
+	| head --lines=$(( ${#hcols[@]} + 1 )) \
+	| [[ "$(cat)" == "$(cat "${header}")" ]] \
+	|| [[ $? -eq ${ERRPIPE} ]]
+}
+
+
 ## TODO: Implement the following tests
 #
 
-test_munge_metadata_header() { return; }
 test_munge_emas() { return; }
 
 test_plot_candlestick() { return; }
@@ -401,6 +440,9 @@ test_plot_dgrid3d() { return; }
 
 ## Testing Infrastructure
 #
+
+declare ERRPIPE
+ERRPIPE=$(( $(kill -l SIGPIPE) + 128 ))
 
 ## Count of columns in stdin
 #
