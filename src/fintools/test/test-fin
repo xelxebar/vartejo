@@ -304,10 +304,26 @@ test_postfetch_securities_nasdaq_com_empty_input()
 }
 
 
+## Test Function 'fetch_time_series_alphavantage_co'
+#
+
+test_fetch_time_series_alphavantage_co_bad_args()
+{
+	local symbol="DUMMY"
+
+	! fetch_time_series_alphavantage_co
+	! fetch_time_series_alphavantage_co "${symbol}" \
+	                                    __nonexistent_function__
+	! fetch_time_series_alphavantage_co "${symbol}" default \
+	                                    __nonexistent_outputsize__
+	! fetch_time_series_alphavantage_co "${symbol}" default default \
+	                                    __nonexistent_interval__
+}
+
+
 ## TODO: Implement the following tests
 #
 
-test_fetch_time_series_alphavantage_co() { return; }
 test_fetch_securities_nasdaq_com() { return; }
 
 test_fetch_time_series() { return; }
