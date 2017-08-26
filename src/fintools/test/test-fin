@@ -352,10 +352,45 @@ test_fetch_securities_bad_args()
 }
 
 
+## Test Function 'munge_filter_columns'
+#
+
+test_munge_filter_columns_column_count()
+{
+	local test_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local sep="${setting[csv-separator]}"
+	local -a cols=(0 1 2)
+	
+	munge_filter_columns "${cols[@]}" <"${test_data}" \
+	| [[ "$(colcount "${sep}")" -eq ${#cols[@]} ]]
+}
+
+test_munge_filter_columns_empty_input()
+{
+	local sep="${setting[csv-separator]}"
+	local -a cols=(0 1 2)
+	
+	printf '' \
+	| munge_filter_columns "${cols[@]}" \
+	| [[ -z "$(cat)" ]]
+}
+
+test_munge_filter_columns_empty_column_list()
+{
+	local test_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local -a cols=()
+
+	munge_filter_columns <"${test_data}" \
+	| [[ -z "$(cat)" ]]
+	
+	munge_filter_columns "${cols[@]}" <"${test_data}" \
+	| [[ -z "$(cat)" ]]
+}
+
+
 ## TODO: Implement the following tests
 #
 
-test_munge_filter_columns() { return; }
 test_munge_metadata_header() { return; }
 test_munge_emas() { return; }
 
