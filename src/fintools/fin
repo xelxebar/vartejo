@@ -436,7 +436,7 @@ postfetch_securities_nasdaq_com()
 		[quote]=8
 	)
 
-	IFS= read -r
+	IFS= read -r || true
 	sed 's/^"//;
 	     s/",\r//;
 	     s/","/'"${sep}"'/g;' \
