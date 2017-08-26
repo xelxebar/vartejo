@@ -496,12 +496,39 @@ test_munge_multi_ema_missing_args()
 }
 
 
-## TODO: Implement the following tests
+## Test Plots
 #
 
-test_plot_candlestick() { return; }
-test_plot_linespoints() { return; }
-test_plot_dgrid3d() { return; }
+test_plot_candlestick()
+{
+	local data="${testdir}/res/plot-data/time-series-LF-daily-100.dat"
+
+	plot_candlestick "${_ts[id]}" \
+	                 "${_ts[open]}" \
+	                 "${_ts[low]}" \
+	                 "${_ts[high]}" \
+	                 "${_ts[close]}" \
+	                 <"${data}"
+}
+
+test_plot_linespoints()
+{
+	local data="${testdir}/res/plot-data/ema-0.8-LF-daily-100.dat"
+
+	plot_linespoints "${_me[id]}" \
+	                 "${_me[ema]}" \
+	                 <"${data}"
+}
+
+test_plot_dgrid3d()
+{
+	local data="${testdir}/res/multi-ema/LF-daily-100-0.0~1.0-101.csv"
+
+	plot_dgrid3d "${_me[id]}" \
+	             "${_me[weight]}" \
+	             "${_me[ema]}" \
+	             <"${data}"
+}
 
 
 ## Testing Infrastructure
