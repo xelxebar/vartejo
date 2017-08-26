@@ -36,18 +36,17 @@ test_apikey_null_key()
 test_ifstdin_nonempty()
 {
 	local input="some input"
-	local output
 
-	output=$(printf '%s' "${input}" | ifstdin cat)
-	[[ "${output}" == "${input}" ]]
+	printf '%s' "${input}" \
+	| ifstdin cat \
+	| [[ "$(cat)" == "${input}" ]]
 }
 
 test_ifstdin_empty()
 {
-	local output
-
-	! output=$(printf '' | ifstdin true)
-	[[ -z "${output}" ]]
+	printf '' \
+	| ifstdin false \
+	| [[ -z "$(cat)" ]]
 }
 
 
@@ -199,12 +198,11 @@ test_sortcols_empty_data()
 		[baz]=0
 		[foo]=1
 	)
-	local column_separator=','
+	local sep=','
 
-	local output
-	! output=$( printf '' \
-	          | sortcols columns colnames "${column_separator}" )
-	[[ -z "${output}" ]]
+	printf '' \
+	| sortcols columns colnames "${sep}" \
+	| [[ -z "$(cat)" ]]
 }
 
 

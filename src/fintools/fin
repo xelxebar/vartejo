@@ -154,7 +154,7 @@ ifstdin()
 	                  | sed 's/^\s\+//' )
 
 	if [[ -z "${stdin_first_byte}" ]]; then
-		return "${error[stdin-empty]}"
+		return
 	else
 		( printf '%b' "\\${stdin_first_byte}"
 		  cat ) \
