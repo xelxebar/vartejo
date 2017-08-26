@@ -297,11 +297,14 @@ fetch_securities()
 # @param [4]  Interval
 fetch_time_series_alphavantage_co()
 {
-	local apikey
+	[[ ${#} -ge 1 ]] || return "${error[bad-args]}"
+
 	local symbol="${1}"
 	local function="${2-default}"
 	local outputsize="${3-default}"
 	local interval="${4-default}"
+	local apikey
+
 	apikey="$(apikey alphavantage.co)"
 
 	fetch_raw_time_series_alphavantage_co "${apikey}" \
