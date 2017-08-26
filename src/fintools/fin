@@ -596,6 +596,8 @@ munge_metadata_header()
 # @params <3..>  Exponential weight(s)
 munge_multi_ema()
 {
+	[[ ${#} -ge 2 ]] || return "${error[bad-args]}"
+
 	local idcol="${1}"
 	local datcol="${2}"
 	local sep="${setting[csv-separator]}"
@@ -607,12 +609,24 @@ munge_multi_ema()
 	for w in "${weight[@]}"; do
 		if [[ $(bc <<<"${w} <  0") -eq 1 ]] \
 		|| [[ $(bc <<<"${w} >  1") -eq 1 ]]; then
-			return "${error[bad-arg]}"
+			return "${error[bad-args]}"
 		fi
 	done
 
 	local -a fields
-	IFS="${sep}" read -ra fields
+	IFS="${sep}" read -ra fields || return 0
+
+	if   [[ -z "${idcol}" ]] \
+	  || [[ "${idcol}" -lt 0 ]] \
+	  || [[ "${idcol}" -ge ${#fields[@]} ]]; then
+		return "${error[bad-args]}"
+	fi
+
+	if   [[ -z "${datcol}" ]] \
+	  || [[ "${datcol}" -lt 0 ]] \
+	  || [[ "${datcol}" -ge ${#fields[@]} ]]; then
+		return "${error[bad-args]}"
+	fi
 
 	local -a sum=()
 	local -a meas=()
