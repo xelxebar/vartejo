@@ -498,6 +498,8 @@ munge_filter_columns()
 	done
 
 	fields="$(IFS=','; printf '%s' "${cols[*]}")"
+	[[ -z "${fields}" ]] && return
+
 	cut --delimiter="${sep}" \
 	    --output-delimiter="${sep}" \
 	    --fields="${fields}"
