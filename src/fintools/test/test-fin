@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 shopt -s -o errexit nounset pipefail
 
+readonly testdir="$(dirname "${0}")"
+
 # shellcheck source=fin
-. "$(dirname "${0}")/../fin"
+. "${testdir}/../fin"
 
 
 ## Test Function 'apikey'
