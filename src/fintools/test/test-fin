@@ -256,10 +256,30 @@ test_fetch_raw_securities_nasdaq_com_bad_args()
 }
 
 
+## Test Function 'postfetch_time_series_alphavantage_co'
+#
+
+test_postfetch_time_series_alphavantage_co_well_formed_output()
+{
+	local test_data="${testdir}/res/raw/LF-daily-100-alphavantage.co.csv"
+	local sep="${setting[csv-separator]}"
+
+	postfetch_time_series_alphavantage_co <"${test_data}" \
+	| [[ "$(awk --field-separator "${sep}" 'END {print NF}')" \
+	     -eq "${#columns_time_series[@]}" ]]
+}
+
+test_postfetch_time_series_alphavantage_co_empty_input()
+{
+	printf '' \
+	| postfetch_time_series_alphavantage_co \
+	| [[ -z "$(cat)" ]]
+}
+
+
 ## TODO: Implement the following tests
 #
 
-test_postfetch_alphavantage_co_time_series() { return; }
 test_postfetch_securities_nasdaq_com() { return; }
 
 test_fetch_time_series_alphavantage_co() { return; }
