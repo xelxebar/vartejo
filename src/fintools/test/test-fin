@@ -22,7 +22,7 @@ test_apikey_bad_key()
 {
 	local apikey
 
-	! apikey="$(apikey '__NONEXISTENT_KEY__' 2>/dev/null)" 
+	! apikey="$(apikey '__NONEXISTENT_KEY__' 2>/dev/null)"
 	[[ "${apikey}" == "" ]]
 }
 
@@ -281,7 +281,7 @@ test_plot_dgrid3d() { return; }
 #
 
 ## Print function backtrace
-# 
+#
 # Prints the Bash function callstack backtrace when the last exit code is
 # non-zero. This shouldn't be called directly but instead trap on EXIT.
 print_backtrace()
@@ -306,7 +306,7 @@ run_tests()
 {
 	local file="${0}"
 	local -a tests=()
-	
+
 	tests=( $(sed --quiet 's/^\(test\w\+\)()$/\1/p' "${file}") )
 
 	local test_func

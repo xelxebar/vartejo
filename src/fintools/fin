@@ -2,19 +2,19 @@
 shopt -s -o errexit nounset pipefail
 
 # MIT License
-# 
+#
 # Copyright (c) 2017 Brandon Wilson
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -66,7 +66,7 @@ shopt -s -o errexit nounset pipefail
 
 
 ### UI Settings
-#  
+#
 
 readonly -A setting=(
 	[plot-vert-padding]=0.1
@@ -369,7 +369,7 @@ fetch_raw_time_series_alphavantage_co()
 	local param
 	for param in "${!field[@]}"; do
 		local value="${field["${param}"]}"
-		
+
 		[[ "${value}" != '__BAD__' ]] || return "${error[bad-args]}"
 		query+="&${param}=${value}"
 	done
@@ -509,7 +509,7 @@ munge_metadata_header()
 	( IFS="${sep}"
 	  printf '%s\n' "${fields[*]}"
 	) >>"${tmp}"
-	
+
 	while IFS="${sep}" read -ra fields; do
 		nrows=$((nrows + 1))
 
@@ -566,7 +566,7 @@ munge_multi_ema()
 	local idcol="${1}"
 	local datcol="${2}"
 	local sep="${setting[csv-separator]}"
-	
+
 	shift 2
 	local -a weight=("${@}")
 
@@ -800,7 +800,7 @@ cmd_plot_ema_interval()
 
 	fetch_time_series "${@}" \
 	| munge_multi_ema "${_ts[id]}" "${_ts[close]}" "${weights[@]}" \
-	| plot_dgrid3d "${_me[id]}" "${_me[weight]}" "${_me[ema]}" 
+	| plot_dgrid3d "${_me[id]}" "${_me[weight]}" "${_me[ema]}"
 }
 
 usage()
