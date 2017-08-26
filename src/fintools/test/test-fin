@@ -261,10 +261,10 @@ test_fetch_raw_securities_nasdaq_com_bad_args()
 
 test_postfetch_time_series_alphavantage_co_well_formed_output()
 {
-	local test_data="${testdir}/res/raw/LF-daily-100-alphavantage.co.csv"
+	local data="${testdir}/res/raw/LF-daily-100-alphavantage.co.csv"
 	local sep="${setting[csv-separator]}"
 
-	postfetch_time_series_alphavantage_co <"${test_data}" \
+	postfetch_time_series_alphavantage_co <"${data}" \
 	| [[ "$(colcount "${sep}")" -eq "${#columns_time_series[@]}" ]]
 }
 
@@ -277,9 +277,9 @@ test_postfetch_time_series_alphavantage_co_empty_input()
 
 test_postfetch_time_series_alphavantage_co_upstream_error()
 {
-	local test_data="${testdir}/res/raw/error-alphavantage.co.json"
+	local data="${testdir}/res/raw/error-alphavantage.co.json"
 
-	! postfetch_time_series_alphavantage_co <"${test_data}" 2>/dev/null
+	! postfetch_time_series_alphavantage_co <"${data}" 2>/dev/null
 }
 
 
@@ -287,10 +287,10 @@ test_postfetch_time_series_alphavantage_co_upstream_error()
 
 test_postfetch_securities_nasdaq_com_well_formed_output()
 {
-	local test_data="${testdir}/res/raw/NYSE-nasdaq.com.csv"
+	local data="${testdir}/res/raw/NYSE-nasdaq.com.csv"
 	local sep="${setting[csv-separator]}"
 
-	postfetch_securities_nasdaq_com <"${test_data}" \
+	postfetch_securities_nasdaq_com <"${data}" \
 	| [[ "$(colcount "${sep}")" -eq "${#columns_securities_list[@]}" ]]
 }
 
@@ -357,11 +357,11 @@ test_fetch_securities_bad_args()
 
 test_munge_filter_columns_column_count()
 {
-	local test_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local data="${testdir}/res/time-series/LF-daily-100.csv"
 	local sep="${setting[csv-separator]}"
 	local -a cols=(0 1 2)
 	
-	munge_filter_columns "${cols[@]}" <"${test_data}" \
+	munge_filter_columns "${cols[@]}" <"${data}" \
 	| [[ "$(colcount "${sep}")" -eq ${#cols[@]} ]]
 }
 
@@ -377,13 +377,13 @@ test_munge_filter_columns_empty_input()
 
 test_munge_filter_columns_empty_column_list()
 {
-	local test_data="${testdir}/res/time-series/LF-daily-100.csv"
+	local data="${testdir}/res/time-series/LF-daily-100.csv"
 	local -a cols=()
 
-	munge_filter_columns <"${test_data}" \
+	munge_filter_columns <"${data}" \
 	| [[ -z "$(cat)" ]]
 	
-	munge_filter_columns "${cols[@]}" <"${test_data}" \
+	munge_filter_columns "${cols[@]}" <"${data}" \
 	| [[ -z "$(cat)" ]]
 }
 
