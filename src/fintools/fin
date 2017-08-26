@@ -389,7 +389,7 @@ postfetch_time_series_alphavantage_co()
 		[volume]=6
 	)
 
-	IFS= read -r
+	IFS= read -r || true
 	sed "s/\\r$//;
 	     s/,/${sep}/g" \
 	| tac \
