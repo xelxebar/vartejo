@@ -265,8 +265,7 @@ test_postfetch_time_series_alphavantage_co_well_formed_output()
 	local sep="${setting[csv-separator]}"
 
 	postfetch_time_series_alphavantage_co <"${test_data}" \
-	| [[ "$(awk --field-separator "${sep}" 'END {print NF}')" \
-	     -eq "${#columns_time_series[@]}" ]]
+	| [[ "$(colcount "${sep}")" -eq "${#columns_time_series[@]}" ]]
 }
 
 test_postfetch_time_series_alphavantage_co_empty_input()
@@ -292,8 +291,7 @@ test_postfetch_securities_nasdaq_com_well_formed_output()
 	local sep="${setting[csv-separator]}"
 
 	postfetch_securities_nasdaq_com <"${test_data}" \
-	| [[ "$(awk --field-separator "${sep}" 'END {print NF}')" \
-	     -eq "${#columns_securities_list[@]}" ]]
+	| [[ "$(colcount "${sep}")" -eq "${#columns_securities_list[@]}" ]]
 }
 
 test_postfetch_securities_nasdaq_com_empty_input()
@@ -368,6 +366,16 @@ test_plot_dgrid3d() { return; }
 
 ## Testing Infrastructure
 #
+
+## Count of columns in stdin
+#
+# @param <1>  Column separator
+colcount()
+{
+	local sep="${1}"
+
+	awk --field-separator "${sep}" 'END {print NF}'
+}
 
 ## Print function backtrace
 #
