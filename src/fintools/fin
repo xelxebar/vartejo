@@ -317,6 +317,8 @@ fetch_time_series_alphavantage_co()
 }
 
 ## Fetch and postprocess exchange company list data from nasdaq.com
+#
+# @param <1>  Symbol of exchange
 fetch_securities_nasdaq_com()
 {
 	fetch_raw_securities_nasdaq_com "${@}" \
