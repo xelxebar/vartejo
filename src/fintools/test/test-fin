@@ -343,10 +343,19 @@ test_fetch_time_series_bad_args()
 	                                __nonexistent_interval__
 }
 
+## Test Function 'fetch_securities'
+#
+
+test_fetch_securities_bad_args()
+{
+	local symbol='NYSE'
+
+	! fetch_securities __nonexistent_symbol__
+}
+
 
 ## TODO: Implement the following tests
 #
-test_fetch_securities() { return; }
 
 test_munge_filter_columns() { return; }
 test_munge_metadata_header() { return; }
