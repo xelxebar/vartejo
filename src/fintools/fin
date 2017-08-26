@@ -126,6 +126,22 @@ readonly -A error=(
 ### Helper Functions
 #
 
+## Fail with optional error message on stderr
+#
+# @param [1]  Return code
+# @param [2]  Error message
+fail()
+{
+	local code="${1-1}"
+	local errmsg="${2-}"
+
+	if [[ -n "${errmsg}" ]]; then
+		>&2 printf '[ERROR]: %s\n' "${errmsg}"
+	fi
+
+	return "${code}"
+}
+
 ## Output API key
 #
 # @param <1>  Key ID
