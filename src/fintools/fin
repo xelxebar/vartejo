@@ -677,6 +677,8 @@ munge_multi_ema()
 # @param <5>  Plot close column
 plot_candlestick()
 {
+	[[ ${#} -eq 5 ]] || return "${error[bad-args]}"
+
 	local xcol="${1}"
 	local open="${2}"
 	local low="${3}"
@@ -690,16 +692,16 @@ plot_candlestick()
 	local posval=1
 	local xmin xmax ymin ymax
 
-	IFS= read -r  # ncols nrows
-	IFS="${sep}" read -r xmin xmax
-	IFS="${sep}" read -r ymin _
-	IFS="${sep}" read -r _ ymax
-	IFS= read -r
+	IFS= read -r  || true # ncols nrows
+	IFS="${sep}" read -r xmin xmax || true
+	IFS="${sep}" read -r ymin _ || true
+	IFS="${sep}" read -r _ ymax || true
+	IFS= read -r || true
 
 	local vrange
-	vrange=$(bc <<<"${ymax} - ${ymin}")
-	ymin=$(bc <<<"${ymin} - ${vrange} * ${pad}")
-	ymax=$(bc <<<"${ymax} + ${vrange} * ${pad}")
+	vrange=$(bc <<<"${ymax:-0} - ${ymin:-0}")
+	ymin=$(bc <<<"${ymin:-0} - ${vrange:-0} * ${pad:-0}")
+	ymax=$(bc <<<"${ymax:-0} + ${vrange:-0} * ${pad:-0}")
 
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
