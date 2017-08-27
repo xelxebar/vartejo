@@ -495,10 +495,10 @@ test__munge_multi_ema__missing_args()
 }
 
 
-## Test Plots
+## Test Function 'plot_candlestick'
 #
 
-test__plot_candlestick()
+test__plot_candlestick__visual_check()
 {
 	local data="${testdir}/res/plot-data/time-series-LF-daily-100.dat"
 
@@ -510,6 +510,30 @@ test__plot_candlestick()
 	                 <"${data}"
 }
 
+test__plot_candlestick__bad_args()
+{
+	local data="${testdir}/res/plot-data/time-series-LF-daily-100.dat"
+
+	! plot_candlestick "${_ts[id]}" "${_ts[open]}" "${_ts[low]}" <"${data}"
+	! plot_candlestick "${_ts[id]}" "${_ts[open]}" <"${data}"
+	! plot_candlestick "${_ts[id]}" <"${data}"
+	! plot_candlestick <"${data}"
+}
+
+test__plot_candlestick__empty_input()
+{
+	printf '' \
+	| plot_candlestick "${_ts[id]}" \
+	                   "${_ts[open]}" \
+	                   "${_ts[low]}" \
+	                   "${_ts[high]}" \
+	                   "${_ts[close]}"
+}
+
+
+## Test Function 'plot_linespoints'
+#
+
 test__plot_linespoints()
 {
 	local data="${testdir}/res/plot-data/ema-0.8-LF-daily-100.dat"
@@ -518,6 +542,10 @@ test__plot_linespoints()
 	                 "${_me[ema]}" \
 	                 <"${data}"
 }
+
+
+## Test Function 'plot_dgrid3d'
+#
 
 test__plot_dgrid3d()
 {
