@@ -664,6 +664,44 @@ munge_multi_ema()
 	done
 }
 
+## Convert date column into unix epoch
+#
+# @param <1>  Column to convert
+munge_date_to_epoch()
+{
+	[[ ${#} -eq 1 ]] || return "${error[bad-args]}"
+
+	local col="${1}"
+	local sep="${setting[csv-separator]}"
+	local date epoch
+	
+	local -a fields=()
+	IFS="${sep}" read -ra fields || return 0
+
+	if [[ "${col}" -lt 0 ]] \
+	|| [[ "${col}" -ge ${#fields[@]} ]]; then
+		return "${error[bad-args]}"
+	fi
+
+	date="${fields["${col}"]}"
+	epoch=$(date +%s --date="${date}")
+	fields["${col}"]="${epoch}"
+
+	( IFS="${sep}"
+	  printf '%s\n' "${fields[*]}"
+	)
+
+	while IFS="${sep}" read -ra fields; do
+		date="${fields["${col}"]}"
+		epoch=$(date +%s --date="${date}")
+		fields["${col}"]="${epoch}"
+
+		( IFS="${sep}"
+		  printf '%s\n' "${fields[*]}"
+		)
+	done
+}
+
 
 ### Data Visualization Functions
 #

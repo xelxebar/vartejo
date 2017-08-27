@@ -495,6 +495,55 @@ test__munge_multi_ema__missing_args()
 }
 
 
+## Test Function 'munge_date_to_epoch'
+#
+
+test__munge_date_to_epoch__correct_format()
+{
+	local sep="${setting[csv-separator]}"
+	local col=1
+	local input output
+
+	input="$(cat <<- EOF
+		foo${sep}2015-11-18${sep}baz
+		foo${sep}2015-11-19${sep}baz
+		foo${sep}2015-11-20${sep}baz
+	EOF
+	)"
+	output="$(cat <<- EOF
+		foo${sep}1447772400${sep}baz
+		foo${sep}1447858800${sep}baz
+		foo${sep}1447945200${sep}baz
+	EOF
+	)"
+
+	echo "${input}" \
+	| munge_date_to_epoch "${col}" \
+	| [[ "$(cat)" == "${output}" ]]
+}
+
+test__munge_date_to_epoch__bad_args()
+{
+	local sep="${setting[csv-separator]}"
+	local input
+
+	input="$(cat <<- EOF
+		foo${sep}2015-11-18${sep}baz
+		foo${sep}2015-11-19${sep}baz
+		foo${sep}2015-11-20${sep}baz
+	EOF
+	)"
+
+	! munge_date_to_epoch -1 <<<"${input}"
+	! munge_date_to_epoch <<<"${input}"
+}
+
+test__munge_date_to_epoch__empty_input()
+{
+	printf '' | munge_date_to_epoch 0
+}
+
+
 ## Test Function 'plot_candlestick'
 #
 
