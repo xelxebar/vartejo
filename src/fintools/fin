@@ -772,6 +772,8 @@ plot_linespoints()
 # @param <3>  Plot z-axis column
 plot_dgrid3d()
 {
+	[[ ${#} -eq 3 ]] || return "${error[bad-args]}"
+
 	local xcol="${1}"
 	local ycol="${2}"
 	local zcol="${3}"
