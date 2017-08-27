@@ -559,7 +559,7 @@ test__plot_linespoints__empty_input()
 ## Test Function 'plot_dgrid3d'
 #
 
-test__plot_dgrid3d()
+test__plot_dgrid3d__visual_check()
 {
 	local data="${testdir}/res/multi-ema/LF-daily-100-0.0~1.0-101.csv"
 
@@ -567,6 +567,21 @@ test__plot_dgrid3d()
 	             "${_me[weight]}" \
 	             "${_me[ema]}" \
 	             <"${data}"
+}
+
+test__plot_dgrid3d__bad_args()
+{
+	local data="${testdir}/res/multi-ema/LF-daily-100-0.0~1.0-101.csv"
+
+	! plot_dgrid3d "${_me[id]}" "${_me[weight]}" <"${data}"
+	! plot_dgrid3d "${_me[id]}" <"${data}"
+	! plot_dgrid3d <"${data}"
+}
+
+test__plot_dgrid3d__empty_input()
+{
+	printf '' \
+	| plot_dgrid3d "${_me[id]}" "${_me[weight]}" "${_me[ema]}"
 }
 
 
