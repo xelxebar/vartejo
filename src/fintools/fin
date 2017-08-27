@@ -735,21 +735,23 @@ plot_candlestick()
 # @param <2>  Plot y-axis column
 plot_linespoints()
 {
+	[[ ${#} -eq 2 ]] || return "${error[bad-args]}"
+
 	local xcol="${1}"
 	local ycol="${2}"
 	local pad="${setting[plot-vert-padding]}"
 	local sep="${setting[csv-separator]}"
 	local xmin xmax ymin ymax
 
-	IFS= read -r  # ncols nrows
-	IFS="${sep}" read -r xmin xmax
-	IFS="${sep}" read -r ymin ymax
-	IFS= read -r
+	IFS= read -r || true  # ncols nrows
+	IFS="${sep}" read -r xmin xmax || true
+	IFS="${sep}" read -r ymin ymax || true
+	IFS= read -r || true
 
 	local vrange
-	vrange=$(bc <<<"${ymax} - ${ymin}")
-	ymin=$(bc <<<"${ymin} - ${vrange} * ${pad}")
-	ymax=$(bc <<<"${ymax} + ${vrange} * ${pad}")
+	vrange=$(bc <<<"${ymax:-0} - ${ymin:-0}")
+	ymin=$(bc <<<"${ymin:-0} - ${vrange:-0} * ${pad:-0}")
+	ymax=$(bc <<<"${ymax:-0} + ${vrange:-0} * ${pad:-0}")
 
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
