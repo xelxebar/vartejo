@@ -88,13 +88,15 @@ utest_backtrace()
 #
 # Runs all functions in caller's file that begin with the string 'test'.
 #
-# @param [1=$0]  File containing tests
+# @param [1..]  Explicit list of tests to run
 utest_run()
 {
-	local file="${1-${0}}"
-	local -a tests=()
+	local -a tests=("${@}")
+	local file="${0}"
 
-	tests=( $(sed --quiet 's/^\(test\w\+\)()$/\1/p' "${file}") )
+	if [[ ${#tests[@]} -eq 0 ]]; then
+		tests=( $(sed --quiet 's/^\(test\w\+\)()$/\1/p' "${file}") )
+	fi
 
 	trap utest_backtrace EXIT
 	printf '1..%s\n' "${#tests[@]}"

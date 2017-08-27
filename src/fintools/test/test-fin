@@ -537,5 +537,5 @@ test__plot_dgrid3d()
 if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
 	#shellcheck source=test/utest
 	. "${testdir}/utest"
-	utest_run "${0}"
+	utest_run "${@}"
 fi
