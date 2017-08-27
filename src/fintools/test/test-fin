@@ -534,13 +534,25 @@ test__plot_candlestick__empty_input()
 ## Test Function 'plot_linespoints'
 #
 
-test__plot_linespoints()
+test__plot_linespoints__visual_check()
 {
 	local data="${testdir}/res/plot-data/ema-0.8-LF-daily-100.dat"
 
-	plot_linespoints "${_me[id]}" \
-	                 "${_me[ema]}" \
-	                 <"${data}"
+	plot_linespoints "${_me[id]}" "${_me[ema]}" <"${data}"
+}
+
+test__plot_linespoints__bad_args()
+{
+	local data="${testdir}/res/plot-data/ema-0.8-LF-daily-100.dat"
+
+	! plot_linespoints "${_me[id]}" <"${data}"
+	! plot_linespoints <"${data}"
+}
+
+test__plot_linespoints__empty_input()
+{
+	printf '' \
+	| plot_linespoints "${_me[id]}" "${_me[ema]}"
 }
 
 
