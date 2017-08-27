@@ -10,7 +10,7 @@ readonly testdir="$(dirname "${0}")"
 ## Test Function 'apikey'
 #
 
-test_apikey_good_key()
+test__apikey__good_key()
 {
 	local apikey
 
@@ -18,7 +18,7 @@ test_apikey_good_key()
 	[[ "${apikey}" != "" ]]
 }
 
-test_apikey_bad_key()
+test__apikey__bad_key()
 {
 	local apikey
 
@@ -26,7 +26,7 @@ test_apikey_bad_key()
 	[[ "${apikey}" == "" ]]
 }
 
-test_apikey_null_key()
+test__apikey__null_key()
 {
 	! apikey 2>/dev/null
 }
@@ -35,7 +35,7 @@ test_apikey_null_key()
 ## Test Function 'ifstdin'
 #
 
-test_ifstdin_nonempty()
+test__ifstdin__stdin_nonempty()
 {
 	local input="some input"
 
@@ -44,7 +44,7 @@ test_ifstdin_nonempty()
 	| [[ "$(cat)" == "${input}" ]]
 }
 
-test_ifstdin_empty()
+test__ifstdin__stdin_empty()
 {
 	printf '' \
 	| ifstdin false \
@@ -55,7 +55,7 @@ test_ifstdin_empty()
 ## Test Function 'mkrhash'
 #
 
-test_mkrhash_good_args()
+test__mkrhash__good_args()
 {
 	local -A hashmap=()
 	local -a array=( 'foo' 'bar' 'baz')
@@ -68,7 +68,7 @@ test_mkrhash_good_args()
 	done
 }
 
-test_mkrhash_empty_array()
+test__mkrhash__empty_array()
 {
 	local -A hashmap=()
 	# shellcheck disable=SC2034
@@ -78,26 +78,26 @@ test_mkrhash_empty_array()
 	[[ ${#hashmap[@]} -eq 0 ]]
 }
 
-test_mkrhash_nonexistent_array()
+test__mkrhash__missing_array()
 {
 	local -A hashmap=()
 
-	mkrhash hashmap nonexistent_array
+	mkrhash hashmap missing_array
 	[[ ${#hashmap[@]} -eq 0 ]]
 }
 
-test_mkrhash_nonexistent_hashmap()
+test__mkrhash__missing_hashmap()
 {
 	local -a array=( 'foo' 'bar' 'baz')
 
-	! mkrhash nonexistent_hashmap array
+	! mkrhash missing_hashmap array
 }
 
 
 ## Test Function 'sortcols'
 #
 
-test_sortcols_column_ordering()
+test__sortcols__column_ordering()
 {
 	# shellcheck disable=SC2034
 	local -a colnames=( 'foo' 'bar' 'baz' )
@@ -121,7 +121,7 @@ test_sortcols_column_ordering()
 	| [[ "$(head -1)" == "foo001,bar001,baz001" ]]
 }
 
-test_sortcols_column_insertion()
+test__sortcols__column_insertion()
 {
 	# shellcheck disable=SC2034
 	local -a colnames=( 'foo' 'bar' 'baz' )
@@ -144,7 +144,7 @@ test_sortcols_column_insertion()
 	| [[ "$(head -1)" == "foo001,,baz001" ]]
 }
 
-test_sortcols_column_deletion()
+test__sortcols__column_deletion()
 {
 	# shellcheck disable=SC2034
 	local -a colnames=( 'foo' 'baz' )
@@ -168,7 +168,7 @@ test_sortcols_column_deletion()
 	| [[ "$(head -1)" == "foo001,baz001" ]]
 }
 
-test_sortcols_empty_sort_specification()
+test__sortcols__empty_sort()
 {
 	# shellcheck disable=SC2034
 	local -a colnames=()
@@ -191,7 +191,7 @@ test_sortcols_empty_sort_specification()
 	| [[ -z "$(cat)" ]]
 }
 
-test_sortcols_empty_data()
+test__sortcols__empty_data()
 {
 	# shellcheck disable=SC2034
 	local -a colnames=( 'foo' 'bar' 'baz' )
@@ -211,20 +211,20 @@ test_sortcols_empty_data()
 ## Test Function 'isdeclared'
 #
 
-test_isdeclared()
+test__isdeclared()
 {
 	# shellcheck disable=SC2034
 	local variable
 
 	isdeclared variable
-	! isdeclared nonexistent_variable
+	! isdeclared missing_variable
 }
 
 
 ## Test Function 'fetch_raw_time_series_alphavantage_co'
 #
 
-test_fetch_raw_time_series_alphavantage_co_bad_args()
+test__fetch_raw_time_series_alphavantage_co__bad_args()
 {
 	local apikey='dummy'
 	local symbol=LF
@@ -234,32 +234,32 @@ test_fetch_raw_time_series_alphavantage_co_bad_args()
 	! fetch_raw_time_series_alphavantage_co '' "${symbol}"
 	! fetch_raw_time_series_alphavantage_co '' ''
 	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
-	                                        __nonexistent_function__
+	                                        __missing_function__
 	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
 	                                        default \
-	                                        __nonexistent_outputsize__
+	                                        __missing_outputsize__
 	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
 	                                        default default \
-	                                        __nonexistent_interval__
+	                                        __missing_interval__
 	! fetch_raw_time_series_alphavantage_co "${apikey}" "${symbol}" \
 	                                        default default default \
-	                                        __nonexistent_datatype__
+	                                        __missing_datatype__
 }
 
 
 ## Test Function 'fetch_raw_securities_nasdaq_com'
 #
 
-test_fetch_raw_securities_nasdaq_com_bad_args()
+test__fetch_raw_securities_nasdaq_com__bad_args()
 {
-	! fetch_raw_securities_nasdaq_com __nonexistent_symbol__
+	! fetch_raw_securities_nasdaq_com __missing_symbol__
 }
 
 
 ## Test Function 'postfetch_time_series_alphavantage_co'
 #
 
-test_postfetch_time_series_alphavantage_co_well_formed_output()
+test__postfetch_time_series_alphavantage_co__correct_output_format()
 {
 	local data="${testdir}/res/raw/LF-daily-100-alphavantage.co.csv"
 	local sep="${setting[csv-separator]}"
@@ -268,14 +268,14 @@ test_postfetch_time_series_alphavantage_co_well_formed_output()
 	| [[ "$(colcount "${sep}")" -eq "${#columns_time_series[@]}" ]]
 }
 
-test_postfetch_time_series_alphavantage_co_empty_input()
+test__postfetch_time_series_alphavantage_co__empty_input()
 {
 	printf '' \
 	| postfetch_time_series_alphavantage_co \
 	| [[ -z "$(cat)" ]]
 }
 
-test_postfetch_time_series_alphavantage_co_upstream_error()
+test__postfetch_time_series_alphavantage_co__upstream_error()
 {
 	local data="${testdir}/res/raw/error-alphavantage.co.json"
 
@@ -285,7 +285,7 @@ test_postfetch_time_series_alphavantage_co_upstream_error()
 
 ## Test Function 'postfetch_securities_nasdaq_com'
 
-test_postfetch_securities_nasdaq_com_well_formed_output()
+test__postfetch_securities_nasdaq_com__correct_output_format()
 {
 	local data="${testdir}/res/raw/NYSE-nasdaq.com.csv"
 	local sep="${setting[csv-separator]}"
@@ -294,7 +294,7 @@ test_postfetch_securities_nasdaq_com_well_formed_output()
 	| [[ "$(colcount "${sep}")" -eq "${#columns_securities_list[@]}" ]]
 }
 
-test_postfetch_securities_nasdaq_com_empty_input()
+test__postfetch_securities_nasdaq_com__empty_input()
 {
 	printf '' \
 	| postfetch_securities_nasdaq_com \
@@ -305,57 +305,57 @@ test_postfetch_securities_nasdaq_com_empty_input()
 ## Test Function 'fetch_time_series_alphavantage_co'
 #
 
-test_fetch_time_series_alphavantage_co_bad_args()
+test__fetch_time_series_alphavantage_co__bad_args()
 {
 	local symbol="DUMMY"
 
 	! fetch_time_series_alphavantage_co
 	! fetch_time_series_alphavantage_co "${symbol}" \
-	                                    __nonexistent_function__
+	                                    __missing_function__
 	! fetch_time_series_alphavantage_co "${symbol}" default \
-	                                    __nonexistent_outputsize__
+	                                    __missing_outputsize__
 	! fetch_time_series_alphavantage_co "${symbol}" default default \
-	                                    __nonexistent_interval__
+	                                    __missing_interval__
 }
 
 
 ## Test Function 'fetch_securities_nasdaq_com'
 #
 
-test_fetch_securities_nasdaq_com_bad_args()
+test__fetch_securities_nasdaq_com__bad_args()
 {
-	! fetch_securities_nasdaq_com __nonexistent_symbol__
+	! fetch_securities_nasdaq_com __missing_symbol__
 }
 
 
 ## Test Function 'fetch_time_series'
 
-test_fetch_time_series_bad_args()
+test__fetch_time_series__bad_args()
 {
 	local symbol='LF'
 
-	! fetch_time_series __nonexistent_symbol__  2>/dev/null
-	! fetch_time_series "${symbol}" __nonexistent_function__
-	! fetch_time_series "${symbol}" default __nonexistent_outputsize__
+	! fetch_time_series __missing_symbol__  2>/dev/null
+	! fetch_time_series "${symbol}" __missing_function__
+	! fetch_time_series "${symbol}" default __missing_outputsize__
 	! fetch_time_series "${symbol}" default default \
-	                                __nonexistent_interval__
+	                                __missing_interval__
 }
 
 ## Test Function 'fetch_securities'
 #
 
-test_fetch_securities_bad_args()
+test__fetch_securities__bad_args()
 {
 	local symbol='NYSE'
 
-	! fetch_securities __nonexistent_symbol__
+	! fetch_securities __missing_symbol__
 }
 
 
 ## Test Function 'munge_filter_columns'
 #
 
-test_munge_filter_columns_column_count()
+test__munge_filter_columns__column_count()
 {
 	local data="${testdir}/res/time-series/LF-daily-100.csv"
 	local sep="${setting[csv-separator]}"
@@ -365,7 +365,7 @@ test_munge_filter_columns_column_count()
 	| [[ "$(colcount "${sep}")" -eq ${#cols[@]} ]]
 }
 
-test_munge_filter_columns_empty_input()
+test__munge_filter_columns__empty_input()
 {
 	local sep="${setting[csv-separator]}"
 	local -a cols=(0 1 2)
@@ -375,7 +375,7 @@ test_munge_filter_columns_empty_input()
 	| [[ -z "$(cat)" ]]
 }
 
-test_munge_filter_columns_empty_column_list()
+test__munge_filter_columns__empty_filter()
 {
 	local data="${testdir}/res/time-series/LF-daily-100.csv"
 	local -a cols=()
@@ -391,7 +391,7 @@ test_munge_filter_columns_empty_column_list()
 ## Test Function 'munge_metadata_header'
 #
 
-test_munge_metadata_header_format()
+test__munge_metadata_header__correct_output_format()
 {
 	local data="${testdir}/res/time-series/LF-daily-100.csv"
 	local header="${testdir}/res/header/LF-daily-100-maximal.csv"
@@ -410,7 +410,7 @@ test_munge_metadata_header_format()
 	|| [[ $? -eq ${ERRPIPE} ]]
 }
 
-test_munge_metadata_header_empty_column_list()
+test__munge_metadata_header__empty_header_column_list()
 {
 	local data="${testdir}/res/time-series/LF-daily-100.csv"
 	local header="${testdir}/res/header/LF-daily-100-minimal.csv"
@@ -431,7 +431,7 @@ test_munge_metadata_header_empty_column_list()
 ## Test Function 'munge_multi_ema'
 #
 
-test_munge_multi_ema_good_args()
+test__munge_multi_ema__correct_output()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
 	local ema_data="${testdir}/res/multi-ema/LF-daily-100-0.8.csv"
@@ -443,7 +443,7 @@ test_munge_multi_ema_good_args()
 	| [[ "$(cat)" == "$(cat "${ema_data}")" ]]
 }
 
-test_munge_multi_ema_bad_id_column()
+test__munge_multi_ema__bad_id_column()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
 	local idcol=-1
@@ -454,7 +454,7 @@ test_munge_multi_ema_bad_id_column()
 	! munge_multi_ema "" "${datacol}" "${w}" <"${ts_data}"
 }
 
-test_munge_multi_ema_bad_data_column()
+test__munge_multi_ema__bad_data_column()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
 	local idcol="${_ts[id]}"
@@ -465,7 +465,7 @@ test_munge_multi_ema_bad_data_column()
 	! munge_multi_ema "${idcol}" "" "${w}" <"${ts_data}"
 }
 
-test_munge_multi_ema_bad_weight()
+test__munge_multi_ema__bad_weight()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
 	local idcol="${_ts[id]}"
@@ -475,7 +475,7 @@ test_munge_multi_ema_bad_weight()
 	! munge_multi_ema "${idcol}" "${datacol}" 100 <"${ts_data}"
 }
 
-test_munge_multi_ema_empty_input()
+test__munge_multi_ema__empty_input()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
 	local idcol="${_ts[id]}"
@@ -487,7 +487,7 @@ test_munge_multi_ema_empty_input()
 	| [[ -z "$(cat)" ]]
 }
 
-test_munge_multi_ema_missing_args()
+test__munge_multi_ema__missing_args()
 {
 	local idcol="${_ts[id]}"
 
@@ -499,7 +499,7 @@ test_munge_multi_ema_missing_args()
 ## Test Plots
 #
 
-test_plot_candlestick()
+test__plot_candlestick()
 {
 	local data="${testdir}/res/plot-data/time-series-LF-daily-100.dat"
 
@@ -511,7 +511,7 @@ test_plot_candlestick()
 	                 <"${data}"
 }
 
-test_plot_linespoints()
+test__plot_linespoints()
 {
 	local data="${testdir}/res/plot-data/ema-0.8-LF-daily-100.dat"
 
@@ -520,7 +520,7 @@ test_plot_linespoints()
 	                 <"${data}"
 }
 
-test_plot_dgrid3d()
+test__plot_dgrid3d()
 {
 	local data="${testdir}/res/multi-ema/LF-daily-100-0.0~1.0-101.csv"
 
