@@ -531,58 +531,11 @@ test_plot_dgrid3d()
 }
 
 
-## Testing Infrastructure
+## Unit Test Framework
 #
-
-declare ERRPIPE
-ERRPIPE=$(( $(kill -l SIGPIPE) + 128 ))
-
-## Count of columns in stdin
-#
-# @param <1>  Column separator
-colcount()
-{
-	local sep="${1}"
-
-	awk --field-separator "${sep}" 'END {print NF}'
-}
-
-## Print function backtrace
-#
-# Prints the Bash function callstack backtrace when the last exit code is
-# non-zero. This shouldn't be called directly but instead trap on EXIT.
-print_backtrace()
-{
-	# shellcheck disable=SC2181
-	if [[ $? -ne 0 ]]; then
-		local i
-		for i in $(seq 1 $(( ${#FUNCNAME[@]} - 1 ))); do
-		# FUNCNAME[0] is this backtrace function, so we start from
-		# index 1
-			>&2 printf '%s(%s):%s\n' "${BASH_SOURCE[i]}" \
-			                         "${FUNCNAME[i]}" \
-			                         "${BASH_LINENO[i]}"
-		done
-	fi
-}
-
-## Run tests in local file
-#
-# Runs all functions in caller's file that begin with the string 'test'.
-run_tests()
-{
-	local file="${0}"
-	local -a tests=()
-
-	tests=( $(sed --quiet 's/^\(test\w\+\)()$/\1/p' "${file}") )
-
-	local test_func
-	for test_func in "${tests[@]}"; do
-		"${test_func}"
-	done
-}
 
 if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
-	trap print_backtrace EXIT
-	run_tests
+	#shellcheck source=test/utest
+	. "${testdir}/utest"
+	utest_run "${0}"
 fi
