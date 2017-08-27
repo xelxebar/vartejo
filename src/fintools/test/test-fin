@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 shopt -s -o errexit nounset pipefail
-
 readonly testdir="$(dirname "${0}")"
 
 # shellcheck source=fin
