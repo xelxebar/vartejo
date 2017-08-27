@@ -77,7 +77,7 @@ readonly -A setting=(
 	[ema-min]=0.0
 	[ema-max]=1.0
 	[ema-bin-count]=100
-	[csv-separator]=$'\t'
+	[csv-separator]=$'|'
 )
 
 
