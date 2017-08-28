@@ -833,7 +833,7 @@ plot_dgrid3d()
 		                      with lines
 		                      notitle;
 
-		pause mouse close
+		pause mouse close;
 	"
 }
 
