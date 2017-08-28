@@ -3,7 +3,7 @@ shopt -s -o errexit nounset pipefail
 readonly testdir="$(dirname "${0}")"
 
 # shellcheck source=fin
-. "${testdir}/../fin"
+. "${testdir}/../ft"
 
 
 ## Test Function 'apikey'
