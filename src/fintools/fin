@@ -823,6 +823,8 @@ plot_dgrid3d()
 	trap 'rm '"${dat}" EXIT
 	cat >"${dat}"
 
+	[[ -s "${dat}" ]] || return 0
+
 	gnuplot --persist -e "
 		set datafile separator '${sep}';
 		set dgrid3d ${meshsz}, ${meshsz};
