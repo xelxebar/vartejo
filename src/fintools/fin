@@ -72,7 +72,6 @@ readonly -A setting=(
 	[plot-vert-padding]=0.1
 	[plot-candlestick-neg-color]='red'
 	[plot-candlestick-pos-color]='green'
-	[plot-dgrid3d-mesh-size]=100
 	[ema-weight]=0.8
 	[ema-min]=0.0
 	[ema-max]=1.0
@@ -702,6 +701,27 @@ munge_date_to_epoch()
 	done
 }
 
+## Split data into datablocks
+#
+# @param <1>  Column that defines a single block
+munge_datablocks()
+{
+	[[ ${#} -eq 1 ]] || return "${error[bad-args]}"
+
+	local col="${1}"
+	local sep="${setting[csv-separator]}"
+
+	# shellcheck disable=SC2016
+	ifstdin awk --field-separator "${sep}" '
+		BEGIN { prev = "" }
+
+		{ if (prev != $1) print "";
+		  print $0;
+		  prev = $1;
+		}
+	'
+}
+
 
 ### Data Visualization Functions
 #
@@ -808,14 +828,13 @@ plot_linespoints()
 # @param <1>  Plot x-axis column
 # @param <2>  Plot y-axis column
 # @param <3>  Plot z-axis column
-plot_dgrid3d()
+plot_surface()
 {
 	[[ ${#} -eq 3 ]] || return "${error[bad-args]}"
 
 	local xcol="${1}"
 	local ycol="${2}"
 	local zcol="${3}"
-	local meshsz="${setting[plot-dgrid3d-mesh-size]}"
 	local sep="${setting[csv-separator]}"
 	local dat
 
@@ -827,7 +846,6 @@ plot_dgrid3d()
 
 	gnuplot --persist -e "
 		set datafile separator '${sep}';
-		set dgrid3d ${meshsz}, ${meshsz};
 
 		splot '${dat}' using $((xcol + 1))
 		                      :$((ycol + 1))
@@ -893,7 +911,8 @@ cmd_plot_ema_interval()
 
 	fetch_time_series "${@}" \
 	| munge_multi_ema "${_ts[id]}" "${_ts[close]}" "${weights[@]}" \
-	| plot_dgrid3d "${_me[id]}" "${_me[weight]}" "${_me[ema]}"
+	| munge_datablocks "${_me[id]}" \
+	| plot_surface "${_me[id]}" "${_me[weight]}" "${_me[ema]}"
 }
 
 usage()

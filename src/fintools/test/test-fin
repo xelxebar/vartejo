@@ -544,6 +544,48 @@ test__munge_date_to_epoch__empty_input()
 }
 
 
+## Test Function 'munge_datablocks'
+#
+
+test__munge_datablocks__correct_format()
+{
+	local input output
+	local sep="${setting[csv-separator]}"
+	local col=0
+
+	input="$(cat <<- EOF
+		1${sep}foo
+		1${sep}bar
+		2${sep}baz
+	EOF
+	)"
+
+	output="$(cat <<- EOF
+
+		1${sep}foo
+		1${sep}bar
+
+		2${sep}baz
+	EOF
+	)"
+
+	munge_datablocks 0 <<<"${input}" \
+	| [[ "$(cat)" == "${output}" ]]
+}
+
+test__munge_datablocks__bad_args()
+{
+	! munge_datablocks
+}
+
+test__munge_datablocks__empty_input()
+{
+	printf '' \
+	| munge_datablocks 0 \
+	| [[ -z "$(cat)" ]]
+}
+
+
 ## Test Function 'plot_candlestick'
 #
 
@@ -605,32 +647,32 @@ test__plot_linespoints__empty_input()
 }
 
 
-## Test Function 'plot_dgrid3d'
+## Test Function 'plot_surface'
 #
 
-test__plot_dgrid3d__visual_check()
+test__plot_surface__visual_check()
 {
-	local data="${testdir}/res/multi-ema/LF-daily-100-0.0~1.0-101.csv"
+	local data="${testdir}/res/plot-data/ema-interval-100-LF-daily-100.dat"
 
-	plot_dgrid3d "${_me[id]}" \
+	plot_surface "${_me[id]}" \
 	             "${_me[weight]}" \
 	             "${_me[ema]}" \
 	             <"${data}"
 }
 
-test__plot_dgrid3d__bad_args()
+test__plot_surface__bad_args()
 {
-	local data="${testdir}/res/multi-ema/LF-daily-100-0.0~1.0-101.csv"
+	local data="${testdir}/res/plot-data/ema-interval-100-LF-daily-100.dat"
 
-	! plot_dgrid3d "${_me[id]}" "${_me[weight]}" <"${data}"
-	! plot_dgrid3d "${_me[id]}" <"${data}"
-	! plot_dgrid3d <"${data}"
+	! plot_surface "${_me[id]}" "${_me[weight]}" <"${data}"
+	! plot_surface "${_me[id]}" <"${data}"
+	! plot_surface <"${data}"
 }
 
-test__plot_dgrid3d__empty_input()
+test__plot_surface__empty_input()
 {
 	printf '' \
-	| plot_dgrid3d "${_me[id]}" "${_me[weight]}" "${_me[ema]}"
+	| plot_surface "${_me[id]}" "${_me[weight]}" "${_me[ema]}"
 }
 
 
