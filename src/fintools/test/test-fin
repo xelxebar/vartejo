@@ -396,6 +396,7 @@ test__munge_metadata_header__correct_output_format()
 	local header="${testdir}/res/header/LF-daily-100-maximal.csv"
 	local -a hcols=(
 		"${_ts[id]}"
+		"${_ts[date]}"
 		"${_ts[open]}"
 		"${_ts[high]}"
 		"${_ts[low]}"
@@ -434,7 +435,7 @@ test__munge_multi_ema__correct_output()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
 	local ema_data="${testdir}/res/multi-ema/LF-daily-100-0.8.csv"
-	local idcol="${_ts[id]}"
+	local idcol="${_ts[date]}"
 	local datacol="${_ts[close]}"
 	local w="${setting[ema-weight]}"
 
@@ -456,7 +457,7 @@ test__munge_multi_ema__bad_id_column()
 test__munge_multi_ema__bad_data_column()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
-	local idcol="${_ts[id]}"
+	local idcol="${_ts[date]}"
 	local datacol=-1
 	local w="${setting[ema-weight]}"
 
@@ -467,7 +468,7 @@ test__munge_multi_ema__bad_data_column()
 test__munge_multi_ema__bad_weight()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
-	local idcol="${_ts[id]}"
+	local idcol="${_ts[date]}"
 	local datacol="${_ts[close]}"
 
 	! munge_multi_ema "${idcol}" "${datacol}" -100 <"${ts_data}"
@@ -477,7 +478,7 @@ test__munge_multi_ema__bad_weight()
 test__munge_multi_ema__empty_input()
 {
 	local ts_data="${testdir}/res/time-series/LF-daily-100.csv"
-	local idcol="${_ts[id]}"
+	local idcol="${_ts[date]}"
 	local datacol="${_ts[close]}"
 	local w="${setting[ema-weight]}"
 
@@ -488,7 +489,7 @@ test__munge_multi_ema__empty_input()
 
 test__munge_multi_ema__missing_args()
 {
-	local idcol="${_ts[id]}"
+	local idcol="${_ts[date]}"
 
 	! munge_multi_ema
 	! munge_multi_ema "${idcol}"
@@ -593,7 +594,7 @@ test__plot_candlestick__visual_check()
 {
 	local data="${testdir}/res/plot-data/time-series-LF-daily-100.dat"
 
-	plot_candlestick "${_ts[id]}" \
+	plot_candlestick "${_ts[date]}" \
 	                 "${_ts[open]}" \
 	                 "${_ts[low]}" \
 	                 "${_ts[high]}" \
@@ -605,16 +606,17 @@ test__plot_candlestick__bad_args()
 {
 	local data="${testdir}/res/plot-data/time-series-LF-daily-100.dat"
 
-	! plot_candlestick "${_ts[id]}" "${_ts[open]}" "${_ts[low]}" <"${data}"
-	! plot_candlestick "${_ts[id]}" "${_ts[open]}" <"${data}"
-	! plot_candlestick "${_ts[id]}" <"${data}"
+	! plot_candlestick "${_ts[date]}" "${_ts[open]}" "${_ts[low]}" \
+	                   <"${data}"
+	! plot_candlestick "${_ts[date]}" "${_ts[open]}" <"${data}"
+	! plot_candlestick "${_ts[date]}" <"${data}"
 	! plot_candlestick <"${data}"
 }
 
 test__plot_candlestick__empty_input()
 {
 	printf '' \
-	| plot_candlestick "${_ts[id]}" \
+	| plot_candlestick "${_ts[date]}" \
 	                   "${_ts[open]}" \
 	                   "${_ts[low]}" \
 	                   "${_ts[high]}" \

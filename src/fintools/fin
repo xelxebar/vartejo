@@ -428,7 +428,8 @@ postfetch_time_series_alphavantage_co()
 	     s/,/${sep}/g" \
 	| tac \
 	| nl --number-width=1 --number-separator="${sep}" \
-	| sortcols rawcols columns_time_series "${sep}"
+	| sortcols rawcols columns_time_series "${sep}" \
+	| munge_date_to_epoch "${_ts[date]}"
 }
 
 ## Fetch raw company list in stock exchanges from nasdaq.com
@@ -764,6 +765,9 @@ plot_candlestick()
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
 
+		set timefmt '%s';
+		set xdata time;
+
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
 
@@ -814,6 +818,9 @@ plot_linespoints()
 	ifstdin gnuplot --persist -e "
 		set datafile separator '${sep}';
 
+		set timefmt '%s';
+		set xdata time;
+
 		set xrange [${xmin}:${xmax}];
 		set yrange [${ymin}:${ymax}];
 
@@ -847,6 +854,9 @@ plot_surface()
 	gnuplot --persist -e "
 		set datafile separator '${sep}';
 
+		set timefmt '%s';
+		set xdata time;
+
 		splot '${dat}' using $((xcol + 1))
 		                      :$((ycol + 1))
 		                      :$((zcol + 1))
@@ -875,8 +885,8 @@ cmd_list_time_series()
 cmd_plot_time_series()
 {
 	fetch_time_series "${@}" \
-	| munge_metadata_header "${_ts[id]}" "${_ts[low]}" "${_ts[high]}" \
-	| plot_candlestick "${_ts[id]}" \
+	| munge_metadata_header "${_ts[date]}" "${_ts[low]}" "${_ts[high]}" \
+	| plot_candlestick "${_ts[date]}" \
 	                   "${_ts[open]}" \
 	                   "${_ts[low]}" \
 	                   "${_ts[high]}" \
@@ -886,7 +896,7 @@ cmd_plot_time_series()
 cmd_plot_ema()
 {
 	fetch_time_series "${@}" \
-	| munge_multi_ema "${_ts[id]}" "${_ts[close]}" \
+	| munge_multi_ema "${_ts[date]}" "${_ts[close]}" \
 	                  "${setting[ema-weight]}" \
 	| munge_metadata_header "${_me[id]}" "${_me[ema]}" \
 	| plot_linespoints "${_me[id]}" "${_me[ema]}"
@@ -910,7 +920,7 @@ cmd_plot_ema_interval()
 	done
 
 	fetch_time_series "${@}" \
-	| munge_multi_ema "${_ts[id]}" "${_ts[close]}" "${weights[@]}" \
+	| munge_multi_ema "${_ts[date]}" "${_ts[close]}" "${weights[@]}" \
 	| munge_datablocks "${_me[id]}" \
 	| plot_surface "${_me[id]}" "${_me[weight]}" "${_me[ema]}"
 }
