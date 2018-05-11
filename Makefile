@@ -1,5 +1,5 @@
 src = $(PWD)/src
-BIN = $(PWD)/bin
+BIN = ~/.local/bin
 targets      = $(notdir $(wildcard $(src)/*))
 clean-targets = $(patsubst %, clean-%, $(targets))
 
