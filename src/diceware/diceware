@@ -1,0 +1,134 @@
+#! /usr/bin/env bash
+shopt -o -s errexit nounset pipefail noclobber
+
+# diceware: A simple script to generate diceware passwords
+#
+# Requires bash 4+
+#
+# 
+# Copyright (C) 2018 Brandon Wilson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+print_usage()
+{
+	cat <<- USAGE
+	Usage: $(basename "${0}") [-h] [-c <count>] [-w <wordlist path>] [-u <wordlist url>] [generate | update | show-config]
+	USAGE
+}
+
+fail()
+{
+	local msg=${1}
+	local errnum=${2-1}
+
+	>&2 printf '%s\n' "${msg}"
+	>&2 print_usage
+	exit "${errnum}"
+}
+
+rand_die_roll()
+{
+	local roll=$((RANDOM % 8))
+	while [[ $roll -eq 0 ]] || [[ $roll -eq 7 ]]; do
+		roll=$((RANDOM % 8))
+	done
+	
+	printf '%s' $roll
+}
+
+rand_index()
+{
+	local index
+
+	local n
+	for ((n = 0; n < width_index; n++)); do
+		index+=$(rand_die_roll)
+	done
+
+	printf '%s' "${index}"
+}
+
+word_from_index()
+{
+	local index=${1}
+
+	[ -r "${path_wordlist}" ] || fail "Cannot read wordlist: ${path_wordlist}"
+	grep "${index}" "${path_wordlist}" | cut -f"${column_word}"
+}
+
+cmd_generate()
+{
+	local count=${1}
+	local words=()
+
+	local n
+	for ((n = 0; n < count; n++)); do
+		words+=($(word_from_index "$(rand_index)"))
+	done
+
+	printf '%s\n' "${words[*]}"
+}
+
+cmd_update()
+{
+	local path=${1}
+	mkdir --verbose --parents "$(dirname "${path}")"
+	curl --location --output "${path}" "${url_wordlist}"
+}
+
+cmd_show_config()
+{
+	cat <<- CONFIG
+	count: ${count_words}
+	wordlist path: ${path_wordlist}
+	wordlist url: ${url_wordlist}
+	CONFIG
+}
+
+
+
+while getopts ':c:w:u:h' opt "${@}"; do
+	case "${opt}" in
+		'c') readonly opt_count=${OPTARG};;
+		'w') readonly opt_wordlist=${OPTARG};;
+		'u') readonly opt_url=${OPTARG};;
+		'h') print_usage; exit;;
+		':') fail "Missing argument to option: -${OPTARG}";;
+		*) fail "Unrecognized option: -${OPTARG}";;
+	esac
+done
+shift $((OPTIND - 1))
+
+readonly command=${1-generate}
+readonly count_words=${opt_count-7}
+readonly path_wordlist=${opt_wordlist-${HOME}/.local/share/diceware/wordlist.asc}
+readonly url_wordlist=${opt_url-http://world.std.com/~reinhold/diceware.wordlist.asc}
+readonly width_index=5
+readonly column_index=1
+readonly column_word=2
+
+
+case "${command}" in
+	'generate') cmd_generate "${count_words}";;
+	'update') cmd_update "${path_wordlist}";;
+	'show-config') cmd_show_config;;
+	*) fail "Unknown command: ${command}";;
+esac
