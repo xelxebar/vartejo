@@ -7,10 +7,8 @@ _mkdir() { mkdir ${VERBOSE+--verbose} --parents "${@}"; }
 
 usage() {
 	cat <<-USAGE
-	Usage: $(basename "${0}") [-x] [<newroot>] [<command>]
-
-	Default <newroot> is ./venv, and default <command> is /bin/bash.
-	The -x switch shares the X11 display.
+	Usage: $(basename "${0}") [-x] <newroot> [<command>]
+	The default <command> is \$SHELL, currently set to ${SHELL}.
 	USAGE
 }
 
@@ -19,6 +17,7 @@ fail() {
 	errno=${2-1}
 
 	>&2 echo "ERROR: ${msg}"
+	>&2 echo
 	>&2 usage
 	exit "${errno}"
 }
@@ -83,4 +82,4 @@ vroot=${1}; shift
 setup_net "${vroot}"
 setup_dirs "${vroot}"
 [ "${share_x11:-}" ] && setup_x11 "${vroot}"
-uunshare "${vroot}" "${@:-/bin/bash}"
+uunshare "${vroot}" "${@:-${SHELL}}"
