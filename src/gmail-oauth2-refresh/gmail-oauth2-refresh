@@ -1,0 +1,66 @@
+#!/usr/bin/awk -f
+LINT=fatal
+
+
+function usage(fd) {
+	if (!fd) fd = "/dev/stdout"
+
+	print "\
+Usage: gmail-oauth2-refresh [-v <var> [-v ...]] <path>                      \n\
+                                                                            \n\
+Refresh OAUTH2 tokens with Google services.                                 \n\
+                                                                            \n\
+Variables:                                                                  \n\
+    BINPATH                                                                 \n\
+        Path to gmail-oauth2 executable (currently \"" BINPATH "\")         \n\
+    USERS                                                                   \n\
+        Users that match this regex will refresh their tokens               \n\
+        (currently /" USERS "/)" \
+        > fd
+}
+
+function fail(msg, errno) {
+	if (!errno) errno = 1
+
+	print "ERROR: "msg > "/dev/stderr"
+	print > "/dev/stderr"
+	usage("/dev/stderr")
+	exit errno
+}
+
+function cmd_opt(prop, val) {
+	switch (prop) {
+		case "user":                 return "--user=" val; break
+		case "oauth2_client_id":     return "--client_id=" val; break
+		case "oauth2_client_secret": return "--client_secret=" val; break
+	}
+}
+
+
+BEGIN {
+	if (!BINPATH) BINPATH = "gmail-oauth2"
+	if (!USERS)   USERS = "@gmail.com|@\\w*\\.waseda.jp"
+	if (ARGC != 2) fail("Expected argument")
+}
+
+/^\s*#/ {next}
+
+/^\[[^]]*\]$/ {
+	user = gensub(/[][]/, "", "g")
+	if (match(user, USERS)) {
+		cmd[user] = BINPATH " " cmd_opt("user", user)
+	}
+}
+/^.*=.*$/ {
+	if (!cmd[user]) next
+	prop = $1; val = $3
+	cmd[user] = cmd[user] " " cmd_opt(prop, val)
+}
+
+END {
+	for (user in cmd) {
+		if (!cmd[user]) continue
+		print "=== " user " === Fetching OAUTH2 token"
+		system(cmd[user] " --generate_oauth2_token")
+	}
+}
