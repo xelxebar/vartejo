@@ -1,0 +1,14 @@
+## Gauss-Legedre algorithm for computing pi
+
+[[lmp lnp lap lbp ltp lqp lOxp]sD]sT # enable debug tracing
+
+[0sn [ln 1+ sn]sN
+ 1sa [la dsc lb + 2/ sa]sA
+ 1 2v/sb [lc lb *v sb]sB
+ 1 4/st [lt lc la- 2^ lq* - st]sT
+ 1sq [lq 2* sq]sQ
+]sI
+[lDx lNx lAx lBx lTx lQx lnlm>Z]sZ
+[la lb+ 2^ lt 4* /]sO
+
+[Ksk k sm lIx lZx lOx lkk]sP # ( iterations precision -- pi )

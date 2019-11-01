@@ -1,0 +1,16 @@
+## Chudnovsky algorithm for computing pi
+
+[[lip ljp lkp llp lxp lmp lsp lOxp]sD]sT # enable debug tracing
+
+[426880 10005v* sc
+ 0si [li 1+ si]sI
+ 6sk [lk 12+ sk]sK
+ 13591409sl [ll 545140134+ sl]sL
+ 1sx [lx _262537412640768000* sx]sX
+ 1sm [lk 3^16 lk* - li 1+ 3^ / lm* sm]sM
+]sY
+[lm ll* lx/ ls+ ss]sS
+[lDx lSx lMx lXx lLx lKx lIx ljli<Z]sZ
+[lc ls/]sO
+
+[Ks0 k sj lYx lZx lOx l0k]sP # ( iterations precision -- pi )
