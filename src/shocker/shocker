@@ -1,0 +1,147 @@
+#!/usr/bin/env sh
+set -o errexit -o nounset -o noclobber
+
+## Command Wrappers
+_curl(){ curl --fail --silent --show-error --location "$@";}
+_jq(){ jq --raw-output "$@";}
+
+## Helpers
+usage() {
+	cat <<-USAGE
+	Usage $0: Usage: $0 [<options>] <command> [<arguments>]
+	Commands: $(commands | xargs)
+
+	A Docker CLI frontend written in POSIX shell.
+	NOTE: Just intended for didactic use; not a robust implementation.
+
+	Global Options:
+	  -a | --arch <architecture>
+	  -d | --datadir <dir>
+	  -o | --os <operating system>
+	  -A | --auth <url>
+	  -R | --registry <url>
+	  -S | --svc <url>
+	USAGE
+}
+fail() { msg=$1; errno=${2:-1}
+	>&2 echo "ERROR: $msg"
+	>&2 usage
+	exit "$errno"
+}
+commands() {
+	sed -n '/^##/h;x;/Commands/{x;s/^\(\w\+\)().*/\1/p;x};x' "$0"
+}
+getopts_preprocess() {
+	[ ${lopt-} ] && opt=$lopt && OPTARG=${larg-}
+	[ "${larg+x}" = x ] && [ ! "${larg-}" ] && OPTARG=$opt && opt=:
+	[ ${lopt-} ] && [ "${lopts##*$lopt*}" ] && OPTARG=$opt && opt=?
+	OPTIND=${loptind-$OPTIND}
+	prefix=-; [ ${lopt-} ] && prefix=--; unset -v lopt larg lnoarg loptind
+}
+getopts_longopt() {
+	lopt=${OPTARG%%=*} larg=${OPTARG#$lopt} larg=${larg#=} lnoarg=${lopts##*$lopt:*}
+	[ "${lnoarg}" ] && unset -v larg \
+	|| [ ! "${larg}" ] && [ $# -ge $OPTIND ] && larg=${!OPTIND} \
+	&& loptind=$((OPTIND+1)) || loptind=$OPTIND
+	OPTIND=$((OPTIND-1))
+}
+
+## Processing Steps
+token() { auth=$1 svc=$2 image=$3
+	echo "$image"
+	_curl "$auth/token?service=$svc&scope=repository:$image:pull" \
+		| _jq .token
+}
+spec() { registry=$1 os=$2 arch=$3 digest=${4:-latest}
+	IFS= read -r image; IFS= read -r token
+	hdr_accept_prefix=application/vnd.docker.distribution.manifest
+
+	printf '%s\n%s\n%s\n%s\n%s\n' "$registry" "$os" "$arch" "$image" "$token"
+	_curl --header "Authorization: Bearer $token" \
+		--header "Accept: $hdr_accept_prefix.list.v2+json" \
+		--header "Accept: $hdr_accept_prefix.v1+json" \
+		--header "Accept: $hdr_accept_prefix.v2+json" \
+		"$registry/v2/$image/manifests/$digest" \
+	| _jq 'if .manifests then
+			.manifests
+			| map(select(.platform.os == "'"$os"'" and
+			             .platform.architecture == "'"$arch"'"))
+			| "digest", .[0].digest
+		else "manifest", . end'
+}
+manifest() { IFS= read -r registry; IFS= read -r os; IFS= read -r arch;
+	IFS= read -r image; IFS= read -r token _; IFS= read -r type _
+	dat=$(cat)
+	printf '%s\n%s\n%s\n' "$image" "$token" \
+	| {
+		[ $type = digest ] && spec "$registry" "$os" "$arch" "$dat" | manifest
+		[ $type = manifest ] && echo "$registry" && cat && echo "$dat"
+	}
+}
+digests() { IFS= read -r registry; IFS= read -r image; IFS= read -r token
+	printf '%s\n%s\n%s\n' "$registry" "$image" "$token"
+	_jq '"config \(.config.mediaType) \(.config.digest)",
+	     "layer \(.layers[] | .mediaType + " " + .digest)"'
+}
+download() { outdir=$1; IFS= read -r registry; IFS= read -r image; IFS= read -r token
+	cmd="curl --parallel --continue-at - --location --header 'Authorization: Bearer $token'"
+	mkdir -p "$outdir"
+	i=1; while IFS=' ' read -r type media digest _; do
+		ext=${media#application/vnd.docker.}
+		ext=${ext#container.image.v?+}
+		ext=${ext#image.rootfs.diff.}
+		[ $type = config ] && fname="${outdir-}${outdir:+/}$type.$ext"
+		[ $type = layer ] && fname="${outdir-}${outdir:+/}${i}_$type.$ext"
+		cmd="$cmd --output '$fname' '$registry/v2/$image/blobs/$digest'"
+		[ $type = layer ] && i=$((i+1))
+		echo "$type $media $fname"
+	done >|"${outdir-}${outdir:+/}files.log"
+
+	eval "$cmd"
+	cat "${outdir-}${outdir:+/}files.log"
+}
+
+
+## Commands
+pull(){ [ $# -ge 1 ] && [ "$1" ] || fail "Pull command expects image argument"
+	image=$1 outdir=${DK_DATADIR-}${DK_DATADIR+/}${DK_OS}/${DK_ARCH}/${image}
+	token "$DK_URL_AUTH" "$DK_URL_SVC" "$image" \
+	| spec "$DK_URL_REGISTRY" "$DK_OS" "$DK_ARCH" \
+	| manifest | digests | download "$outdir"
+}
+extract(){ [ $# -ge 1 ] && [ "$1" ] || fail "Extract command expecs dir arg"
+	vroot=$1; [ -d "$vroot" ] && [ -w "$vroot" ] \
+	|| fail "Directory $vroot must be and existing writable directory"
+
+	while IFS=' ' read -r type media archive _; do
+		[ $type = config ] && continue
+		tar --directory="$vroot" --extract --gzip --verbose --file "$archive"
+	done
+}
+
+
+## CLI Processing
+DK_URL_REGISTRY=https://registry-1.docker.io
+DK_URL_AUTH=https://auth.docker.io
+DK_URL_SVC=registry.docker.io
+DK_OS=linux
+DK_ARCH=amd64
+
+lopts='arch: datadir: os: auth: registry: svc:'
+while getopts ':a:d:o:v:A:R:S:-:' opt "$@"; do
+	getopts_preprocess
+	case "$opt" in
+	-) getopts_longopt "$@";;
+	a|arch) DK_ARCH=$OPTARG;;
+	d|datadir) DK_DATADIR=$OPTARG;;
+	o|os) DK_OS=$OPTARG;;
+	A|auth) DK_URL_AUTH=$OPTARG;;
+	R|registry) DK_URL_REGISTRY=$OPTARG;;
+	S|svc) DK_URL_SVC=$OPTARG;;
+	:) fail "Expected parameter: $prefix$OPTARG";;
+	*) fail "Unknown flag: $prefix$OPTARG"; exit 1;;
+	esac
+done; shift $((OPTIND - 1)); unset -v OPTIND
+
+[ $# -gt 0 ] || fail "Expected command"
+"$@"
