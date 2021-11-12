@@ -1,0 +1,49 @@
+#!/usr/bin/env sh
+set -o noclobber -o nounset
+
+API_URL=https://service.greenhost.net/api/v2
+API_KEY=ebcbdd77073e33c068a9858c9b6fc43f2dcbe7401f4faf67
+
+api(){ path=${1-}; [ $# -gt 0 ] && shift
+	curl --silent --location \
+	     --header "Authorization: Bearer $API_KEY" \
+	     --header "Content-Type: application/json" \
+	     ${1+"$@"} "$API_URL/$path" \
+	| jq -C . | less --quit-if-one-screen --RAW-CONTROL-CHARS;}
+regions(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
+	[ "$cmd" = ls ] && api regions;}
+images(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
+	[ "$cmd" = ls ] && api images;}
+keys(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
+	case "$cmd" in
+	ls) api account/keys;;
+	show) for id in "$@"; do api "account/keys/$id"; done;;
+	create) api account/keys --data @- <<-JSON
+		{"name": "$1", "public_key": "$2"}
+		JSON
+		;;
+	delete) for id in "$@"; do api "account/keys/$id" -X DELETE; done;;
+	esac;}
+droplets(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
+	case "$cmd" in
+	ls) api droplets;;
+	show) for id in "$@"; do api "droplets/$1"; done;;
+	create) api droplet --data @- <<-JSON
+		{"name": "$1", "region": "$2", "size": "M$3-D$4", "image": $5, "ssh_keys": $6}
+		JSON
+		;;
+	delete) for id in "$@"; do api "droplets/$1" -X DELETE; done;;
+	actions) droplet_actions "$@";;
+	esac;}
+droplet_actions(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
+	case "$cmd" in
+	ls) api "droplets/$1/actions";;
+	do) api "droplets/$2/actions" --data @- <<-JSON
+		{"type": "$1"}
+		JSON
+		;;
+	esac;}
+actions(){ cmd=${1-show}; [ $# -gt 0 ] && shift
+	[ "$cmd" = show ] && api "actions/$1";}
+
+"$@"
