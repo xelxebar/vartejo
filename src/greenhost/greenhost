@@ -4,46 +4,48 @@ set -o noclobber -o nounset
 API_URL=https://service.greenhost.net/api/v2
 API_KEY=ebcbdd77073e33c068a9858c9b6fc43f2dcbe7401f4faf67
 
+### Plumbing
+jq(){ command jq --color-output "$@";}
+less(){ command less --quit-if-one-screen --RAW-CONTROL-CHARS "$@";}
+pager(){ [ -t 1 ] && jq . | less || cat;}
 api(){ path=${1-}; [ $# -gt 0 ] && shift
+       data=${1-}; [ $# -gt 0 ] && shift
 	curl --silent --location \
 	     --header "Authorization: Bearer $API_KEY" \
 	     --header "Content-Type: application/json" \
-	     ${1+"$@"} "$API_URL/$path" \
-	| jq -C . | less --quit-if-one-screen --RAW-CONTROL-CHARS;}
-regions(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
-	[ "$cmd" = ls ] && api regions;}
-images(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
-	[ "$cmd" = ls ] && api images;}
-keys(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
-	case "$cmd" in
-	ls) api account/keys;;
-	show) for id in "$@"; do api "account/keys/$id"; done;;
-	create) api account/keys --data @- <<-JSON
-		{"name": "$1", "public_key": "$2"}
-		JSON
-		;;
-	delete) for id in "$@"; do api "account/keys/$id" -X DELETE; done;;
-	esac;}
-droplets(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
-	case "$cmd" in
-	ls) api droplets;;
-	show) for id in "$@"; do api "droplets/$1"; done;;
-	create) api droplet --data @- <<-JSON
-		{"name": "$1", "region": "$2", "size": "M$3-D$4", "image": $5, "ssh_keys": $6}
-		JSON
-		;;
-	delete) for id in "$@"; do api "droplets/$1" -X DELETE; done;;
-	actions) droplet_actions "$@";;
-	esac;}
-droplet_actions(){ cmd=${1-ls}; [ $# -gt 0 ] && shift
-	case "$cmd" in
-	ls) api "droplets/$1/actions";;
-	do) api "droplets/$2/actions" --data @- <<-JSON
-		{"type": "$1"}
-		JSON
-		;;
-	esac;}
-actions(){ cmd=${1-show}; [ $# -gt 0 ] && shift
-	[ "$cmd" = show ] && api "actions/$1";}
+	     --header "User-Agent: Ad-hoc script" \
+	     ${data:+--header "Content-Length: ${#data}"} \
+	     ${data:+--data "$data"} \
+	     "$@" "$API_URL/$path" \
+	| pager;}
+run(){ p=${1-help};[ $# -gt 0 ]&&shift;[ $p = help ]&&help "$@"&&return;
+	c=${1-_};[ $# -gt 0 ]&&shift;[ $c = _ ]&&help "$p"&&return;
+	"${p}_${c}" "$@";}
+tofun(){ [ $# -le 1 ]&&echo "$@"&&return;f=${1}_${2};shift 2;tofun "$f" "$@";}
+cmds(){ sed -n '/^### Cmds/,/^###/s@^'"${1-}${1+_}"'\([[:alnum:]]\+\)\w*().*@\1@p' "$0" | sort -u;}
 
-"$@"
+### Cmds
+help(){ printf '%s\n' \
+	"Usage: $0 $*${1+ }[<subcommand> ...] [<option> ...]" \
+	"Subcommands: $(echo $(cmds $(tofun "$@")))"
+}
+api_help(){ api;}
+regions_ls(){ api "regions";}
+images_ls(){ api "images";}
+keys_ls(){ api "account/keys";}
+keys_show(){ for id in "$@"; do api "account/keys/$id"; done;}
+keys_create(){ api "account/keys" "{\"name\": \"$1\", \"public_key\": \"$2\"}";}
+keys_delete(){ for id in "$@"; do api "account/keys/$id" '' -X DELETE; done;}
+droplets_ls(){ api "droplets";}
+droplets_show(){ for id in "$@"; do api "droplets/$id"; done;}
+droplets_create(){ api "droplet" "{\"name\": \"$1\", \"region\": \"$2\",
+                                   \"size\": \"M$3-D$4\", \"image\": $5,
+                                   \"ssh_keys\": $6}";}
+droplets_delete(){ for id in "$@"; do api "droplets/$1" '' -X DELETE; done;}
+droplets_actions(){ run droplets_actions "$@";}
+droplets_actions_ls(){ api "droplets/$1/actions";}
+droplets_actions_do(){ api "droplets/$2/actions" "{\"type\": \"$1\"}";}
+actions_show(){ api "actions/$1";}
+
+### Main
+[ "${1-x}" = "debug" ] && { shift;"$@";:;} || run "$@"
