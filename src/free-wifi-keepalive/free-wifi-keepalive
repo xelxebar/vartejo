@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+tmpd=$(mktemp -d /tmp/wifi-keepalive.XXXX); trap 'rm -rf "$tmpd"' EXIT
+agent='Mozilla/4.0(compatible;MSIE 7.0;Windows NT 6.1;WOW64;Trident/5.0;SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729;Media Center PC 6.0; .NET4.0C; .NET4.0E)'
+# shellcheck disable=SC2034
+url_fallback_register='https://service.wi2.ne.jp/wi2auth/redirect?cmd=login&mac=a0:e7:0b:3d:03:2e&ip=10.11.125.154&essid=%20&apname=tunnel%201&apgroup=&url=http%3A%2F%2Fwilsonb%2Ecom%2F'
+
+log(){ echo "$(date +%T): $1";}
+info(){ >&2 log "INFO: $1";}
+error(){ >&2 log "ERROR: $2";}
+
+randint() { beg=${1-0}; end=${2-2147483647}; rng=$((end-beg))
+	echo | awk "{srand();print int($rng*rand())+$beg}"
+}
+
+randprobe() {
+	sort --random-sort <<-'URLS' | head -1
+		neverssl.com
+		blog.wilsonb.com
+		kernel.org
+		guix.gnu.org
+		tenki.jp
+		www.cloudflare.com
+	URLS
+}
+
+## Pretend to be user pushing "Accept" button
+#
+# Apparently, edbrowse executes external functions syncronously, blocking
+# rendering, JS, etc. In particular, this means that sleep commands are
+# insufficient to wait for the page to finish loading. We have to fake this by
+# sending commands asynchronously via a fifo.
+register() { url=$1
+	mkfifo "$tmpd/edbrowse.fifo"
+	edbrowse "$url" <"$tmpd/edbrowse.fifo" & edbrowse_pid=$!
+	exec {fifo}>"$tmpd/edbrowse.fifo"
+
+	cleanup(){
+		[ -d "/proc/$edbrowse_pid" ] && kill $edbrowse_pid
+		exec {fifo}>&-; unset -v fifo
+		rm "$tmpd/edbrowse.fifo"
+	}; trap cleanup RETURN
+
+	while read -r cmd; do
+		[ "${cmd:0:1}" = '!' ] && { $cmd; continue; }
+		echo "$cmd" >&"$fifo"
+	done <<-EOF
+		!sleep $(randint 15 20)
+		rr
+		/Accept/
+		!sleep 1
+		i2*
+		!sleep $(randint 5 10)
+		q
+	EOF
+}
+
+connect() {
+	curl --silent --user-agent "$agent" --head "$(randprobe)" \
+	| sed -n 's/Location: //p' \
+	| if IFS= read -r url_redirect; then
+		register "$url_redirect"
+		return 1
+	fi
+}
+
+main() {
+	while :; do (
+		info 'Testing connection...'
+		connect && info 'Connected' && sleep "$(randint 30 60)"
+	); done
+}
+
+
+trap 'exit' QUIT
+trap ':' INT
+main
