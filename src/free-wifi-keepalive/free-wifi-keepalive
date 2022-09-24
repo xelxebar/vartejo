@@ -16,11 +16,6 @@ randint() { beg=${1-0}; end=${2-2147483647}; rng=$((end-beg))
 randprobe() {
 	sort --random-sort <<-'URLS' | head -1
 		neverssl.com
-		blog.wilsonb.com
-		kernel.org
-		guix.gnu.org
-		tenki.jp
-		www.cloudflare.com
 	URLS
 }
 
