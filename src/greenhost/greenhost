@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
-set -o noclobber -o nounset
+set -o noclobber -o nounset -o errexit
 
 API_URL=https://service.greenhost.net/api/v2
 API_KEY=ebcbdd77073e33c068a9858c9b6fc43f2dcbe7401f4faf67
 
 ### Plumbing
 jq(){ command jq --color-output "$@";}
-less(){ command less --quit-if-one-screen --RAW-CONTROL-CHARS "$@";}
-pager(){ [ -t 1 ] && jq . | less || cat;}
+less(){ command less --quit-if-one-screen --RAW-CONTROL-CHARS;}
+pager(){ if [ -t 1 ]; then jq . | less; else cat; fi;}
 api(){ path=${1-}; [ $# -gt 0 ] && shift
        data=${1-}; [ $# -gt 0 ] && shift
 	curl --silent --location \
@@ -18,16 +18,16 @@ api(){ path=${1-}; [ $# -gt 0 ] && shift
 	     ${data:+--data "$data"} \
 	     "$@" "$API_URL/$path" \
 	| pager;}
-run(){ p=${1-help};[ $# -gt 0 ]&&shift;[ $p = help ]&&help "$@"&&return;
-	c=${1-_};[ $# -gt 0 ]&&shift;[ $c = _ ]&&help "$p"&&return;
+run(){ p=${1-help};[ $# -gt 0 ]&&shift;[ "$p" = help ]&&help "$@"&&return;
+	c=${1-_};[ $# -gt 0 ]&&shift;[ "$c" = _ ]&&help "$p"&&return;
 	"${p}_${c}" "$@";}
 tofun(){ [ $# -le 1 ]&&echo "$@"&&return;f=${1}_${2};shift 2;tofun "$f" "$@";}
-cmds(){ sed -n '/^### Cmds/,/^###/s@^'"${1-}${1+_}"'\([[:alnum:]]\+\)\w*().*@\1@p' "$0" | sort -u;}
+cmds(){ sed -n '/^### Cmds/,/^###/s@^'"${1:-}${1:+_}"'\([[:alnum:]]\+\)\w*().*@\1@p' "$0" | sort -u;}
 
 ### Cmds
 help(){ printf '%s\n' \
 	"Usage: $0 $*${1+ }[<subcommand> ...] [<option> ...]" \
-	"Subcommands: $(echo $(cmds $(tofun "$@")))"
+	"Subcommands: $(cmds "$(tofun "$@")" | xargs)"
 }
 api_help(){ api;}
 regions_ls(){ api "regions";}
@@ -48,4 +48,4 @@ droplets_actions_do(){ api "droplets/$2/actions" "{\"type\": \"$1\"}";}
 actions_show(){ api "actions/$1";}
 
 ### Main
-[ "${1-x}" = "debug" ] && { shift;"$@";:;} || run "$@"
+if [ "${1-x}" = "debug" ]; then shift; "$@"; :; else run "$@"; fi
