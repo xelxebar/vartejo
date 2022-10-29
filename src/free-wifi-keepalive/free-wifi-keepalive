@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -o pipefail
 
 tmpd=$(mktemp -d /tmp/wifi-keepalive.XXXX); trap 'rm -rf "$tmpd"' EXIT
 agent='Mozilla/4.0(compatible;MSIE 7.0;Windows NT 6.1;WOW64;Trident/5.0;SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729;Media Center PC 6.0; .NET4.0C; .NET4.0E)'
@@ -37,11 +38,14 @@ register() { url=$1
 	}; trap cleanup RETURN
 
 	while read -r cmd; do
-		[ "${cmd:0:1}" = '!' ] && { $cmd; continue; }
+		[ "${cmd:0:1}" = '!' ] && { ${cmd#!}; continue; }
 		echo "$cmd" >&"$fifo"
 	done <<-EOF
-		!sleep $(randint 15 20)
-		rr
+		js+
+		b $url
+		!sleep $(randint 5 10)
+		rf
+		!sleep $(randint 5 10)
 		/Accept/
 		!sleep 1
 		i2*
@@ -53,10 +57,7 @@ register() { url=$1
 connect() {
 	curl --silent --user-agent "$agent" --head "$(randprobe)" \
 	| sed -n 's/Location: //p' \
-	| if IFS= read -r url_redirect; then
-		register "$url_redirect"
-		return 1
-	fi
+	| register
 }
 
 main() {
