@@ -55,24 +55,7 @@ ln --symbolic --target-directory=/usr/local/share/info \
 	/var/guix/profiles/per-user/root/current-guix/share/info/*
 
 ### Update Package Database
-mkdir -p ~/.config/guix
-cat >~/.config/guix/channels.scm <<-CHANNELS_SCM
-	(cons* (channel
-	        (name 'nonguix)
-	        (url "https://gitlab.com/nonguix/nonguix")
-	        ;; Enable signature verification:
-	        (introduction
-	         (make-channel-introduction
-	          "897c1a470da759236cc11798f4e0a5f7d4d59fbc"
-	          (openpgp-fingerprint
-	           "2A39 3FFF 68F4 EF7A 3D29  12AF 6F51 20A0 22FB B2D5"))))
-	       %default-channels)
-CHANNELS_SCM
-
 guix archive --authorize <~root/.config/guix/current/share/guix/ci.guix.gnu.org.pub
-curl --location 'https://substitutes.nonguix.org/signing-key.pub' \
-	| guix archive --authorize
-
 guix pull
 
 ### Install Dependencies Needed for guix system reconfigure
@@ -85,9 +68,8 @@ dev_root=$(awk '$2 == "/" { print $1 }' /proc/mounts)
 ip=$(ip -brief -family inet address show dev eth0 | awk '{print $3}')
 gateway=$(ip route show default | awk '{print $3}')
 cat >/etc/bootstrap-config.scm <<-CONFIG_SCM
-	(use-modules (gnu)
-	             (nongnu packages linux)
-	             (nongnu system linux-initrd)))
+	(use-modules (gnu))
+	(use-package-modules certs tmux)
 	(use-service-modules networking ssh)
 
 	(operating-system
@@ -98,14 +80,13 @@ cat >/etc/bootstrap-config.scm <<-CONFIG_SCM
 	               (bootloader grub-bootloader)
 	               (targets '("/dev/null"))))
 
-	  (kernel linux)
-	  (initrd microcode-initrd)
-
 	  (file-systems (cons (file-system
 	                        (mount-point "/")
 	                        (device "$dev_root")
 	                        (type "xfs"))
 	                      %base-file-systems))
+
+	  (packages (list nss-certs mosh tmux))
 
 	  (services
 	    (append
@@ -119,36 +100,10 @@ cat >/etc/bootstrap-config.scm <<-CONFIG_SCM
 	                             (list (network-route
 	                                    (destination "default")
 	                                    (gateway "$gateway"))))
-	                            (name-servers '("195.190.28.82" "195.190.28.85"))))
-	            (simple-service 'guile-load-path-in-global-env
-	             session-environment-service-type
-	             (quasiquote
-	               (("GUILE_LOAD_PATH"
-	                 . "/run/current-system/profile/share/guile/site/3.0")
-	                ("GUILE_LOAD_COMPILED_PATH"
-	                 . ,(string-join '("/run/current-system/profile/lib/guile/3.0/site-ccache"
-	                                   "/run/current-system/profile/share/guile/site/3.0")
-	                                 ":"))))
+	                            (name-servers '("195.190.28.82" "195.190.28.85")))))
 	            (service openssh-service-type
 	              (openssh-configuration
 	               (log-level 'debug)
 	               (permit-root-login 'prohibit-password))))
 	      %base-services)))
 CONFIG_SCM
-
-exit
-
-### Bootstrap
-guix system build /etc/bootstrap-config.scm
-guix system reconfigure /etc/bootstrap-config.scm # ???
-# guix pull
-#shellcheck disable=SC1091
-# . "$GUIX_PROFILE/etc/profile"
-mv /etc /etc.old
-mkdir /etc
-cp --recursive \
-	/etc.old/{passwd,group,shadow,gshadow,mtab} \
-	/etc.old/{guix,bootstrap-config.scm,resolv.conf,services,hosts} \
-	/etc
-# guix system init --no-bootloader /etc/bootstrap-config.scm /
-guix system reconfigure /etc/bootstrap-config.scm
