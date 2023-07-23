@@ -1,0 +1,283 @@
+# Elf64_Ehdr:
+7f 45 4c 46                # e_ident[EI_MAG]     = 0x7F 'E' 'L' 'F'
+            02             # e_ident[EI_CLASS]   = ELFCLASS64
+               01          # e_ident[EI_DATA]    = ELFDATA2LSB
+                  01       # e_ident[EI_VERSION] = EV_CURRENT
+                     00    # e_ident[EI_OSABI]   = ELFOSABI_SYSV
+00                         # e_ident[ABIVERSION]
+   00 00 00 00 00 00 00    # e_ident[EI_PAD]
+02 00                      # e_type              = ET_EXEC
+      3e 00                # e_machine           = EM_X86_64
+            01 00 00 00    # e_version           = EV_CURRENT
+78 00 40 00 00 00 00 00    # e_entry             = _entry
+40 00 00 00 00 00 00 00    # e_phoff             = Elf_Phdr
+00 00 00 00 00 00 00 00    # e_shoff
+00 00 00 00                # e_flags
+            40 00          # e_ehsize            = Elf64_Phdr - Elf64_Ehdr
+                  38 00    # e_phentsize         = _entry - Elf64_Phdr
+01 00                      # e_phnum
+      40 00                # e_shentsize
+            00 00          # e_shnum
+                  00 00    # e_shstrndx
+
+# Elf64_Phdr:
+01 00 00 00                # p_type              = PT_LOAD
+            07 00 00 00    # p_flags             = PF_R | PF_W | PF_X
+00 00 00 00 00 00 00 00    # p_offset            = Elf64_Ehdr
+00 00 40 00 00 00 00 00    # p_vaddr             = 2*HPAGE_SIZE
+00 00 00 00 00 00 00 00    # p_paddr             = (unused)
+02 1e 01 00 00 00 00 00    # p_filesz            = _fend - Elf64_Ehdr
+00 00 c0 7f 00 00 00 00    # p_memsz
+00 10 00 00 00 00 00 00    # p_align
+
+
+### Data Layout
+#
+# 10000000: #in
+# 10000008: TIB
+# 10000010: >IN
+# 10000020: STATE
+# 10000028: Latest
+# 10000030: Word0
+#
+
+# _entry:
+be b2 00 40 00             # mov $0x004000, %esi
+bf 30 00 00 10             # mov $Word0, %edi
+
+# _start:
+e8 02 00 00 00             # call _main
+eb f9                      # jmp _start
+
+# _main:
+ac                         # lodsb
+3c 99                      # cmp $0x99, %al
+74 02                      # je _command
+aa                         # stosb
+c3                         # retn
+
+# _command:
+ba 28 00 00 10             # mov $Latest, %edx
+ac                         # lodsb
+a8 60                      # test $0x60, %al  # [^[:cntrl:]]
+74 31                      # jz _Head
+48 8b 1a                   # mov (%rdx), %rbx
+
+# _find:
+50                         # push %rax
+24 7f                      # and $0x7f, %al
+3a 43 11                   # cmp 0x11(%rbx), %al
+58                         # pop %rax
+74 06                      # je _match
+48 8b 5b 08                # mov 0x08(%rbx), %rbx
+eb f1                      # jmp _find
+
+# _match:
+a8 80                      # test 0x80, %al
+74 09                      # jz _COMPL
+ff 23                      # jmp (%rbx)
+
+
+99 05 43 4f 4d 50 4c       ## : COMPL ... ;
+                           ## \ Insert Subroutine Threaded call
+                           ## \   mov "call (%rsb, %rsp)", (%rdi)
+                           ## \   add $3, %rdi
+# _COMPL:
+b0 ff aa                   # mov $0xff, %al; stosb
+b0 14 aa                   # mov $0x14, %al; stosb
+b0 25 aa                   # mov $0x25, %al; stosb
+93                         # xchg %eax, %ebx
+ab                         # stosd
+c3                         # retn
+
+99 04 48 65 61 64          ## : Head ... ;
+                           ## \ Setup new Dictionary Header entry
+                           ## \   +0000: Code
+                           ## \   +0008: Link
+                           ## \   +0010: Flag (&0xe0) | Name Length (&0x1f)
+# _Head:                   ## \   +0011: Name
+48 83 c7 0f                # add $0x0f, %rdi
+48 83 e7 f0                # sub $0xf0, %rdi
+48 8b 0a                   # mov (%rdx), %rcx
+48 89 4f 08                # mov %rcx, $0x08(%rdi)
+48 89 3a                   # mov %rdi, (%rdx)
+48 83 c7 10                # add $0x10, %rdi
+aa                         # stosb
+91                         # xchg %eax, %ecx
+83 e1 1f                   # and $0x1f, %ecx
+f3 a4                      # rep movsb
+48 8b 0a                   # mov (%rdx), %rcx
+48 89 39                   # mov %rdi, (%rcx)
+c3                         # retn
+
+99 03 42 59 45             ## : bye ... ;
+6a 3c                      # push $0x3c  # exit(2)
+58                         # pop %eax
+31 ff                      # xor %rdi, %rdi
+0f 05                      # syscall
+
+99 04 54 59 50 45          ## : TYPE ... ;
+6a 01                      # push $0x01
+5f                         # pop %rdi
+# _loop:
+8b c7                      # mov %edi, %eax  # write(2)
+0f 05                      # syscall
+48 85 c0                   # test %rax, %rax
+7c 08                      # jl _retn
+48 01 c6                   # add %rax, %rsi
+48 29 c2                   # sub %rax, %rdx
+7f ef                      # jg _loop
+# _retn:
+c3                         # retn
+
+99 03 64 62 67             ## : dbg ... ;
+56                         # push %rsi
+57                         # push %rdi
+be e0 ff ff 0f             # mov $0x0fffffe0, %esi
+ba 00 0a 00 00             # mov $0x00000a00, %edx
+99 54                      # Call TYPE
+5f                         # pop %rdi
+5e                         # pop %rsi
+c3                         # retn
+
+99 03 72 65 67             ## : reg ... ;
+56                         # push %rsi
+57                         # push %rdi
+41 57                      # push %r15
+57                         # push %rdi
+41 56                      # push %r14
+56                         # push %rsi
+41 55                      # push %r13
+55                         # push %rbp
+41 54                      # push %r12
+54                         # push %rsp
+41 53                      # push %r11
+53                         # push %rbx
+41 52                      # push %r10
+52                         # push %rdx
+41 51                      # push %r9
+51                         # push %rcx
+41 50                      # push %r8
+50                         # push %rax
+48 8b f4                   # mov %rsp, %rsi
+ba 80 00 00 00             # mov $0x00000080, %edx
+99 54                      # Call TYPE
+48 83 ec 80                # sub $0x80, %rsp
+5f                         # pop %rdi
+5e                         # pop %rsi
+c3                         # retn
+
+99 06 52 45 46 49 4c 4c    ## : REFILL ... ;
+49 c7 c1 00 00 00 10
+49 8b 01 49 01
+41 08
+49 83 21 00
+49 83 61 10 00
+49 ff 01
+49 8b
+41 08
+49 03 01 80 78 ff 0a 75 f0
+c3
+
+99 04 73 65 65 6b          ## : seek ... ;
+49 c7 c1 00 00 00 10
+2a d1 49 8b 41 10 49
+3b 01 73 16 49 8b 41 08 49 03 41 10 8a 00 2a c1
+3a c2 72 06 49 ff 41 10 eb e1 c3
+
+99 05 50 41 52 53 45       ## : PARSE ... ;
+49 c7 c1 00 00 00
+10 49 8b 69 10 99 73 49
+8b 41 10 73 04 49 ff 41 10 48 29 e8 49 03 69 08
+c3
+
+99 05 70 6e 61 6d 65       ## : pname ... ;
+b1 21 b2 7f 99 73 b1 7f
+b2 21 99 50 c3
+
+99 81 5b                   ## : [ ; IMMEDIATE
+6a 00 8f 04 25 20 00 00
+10 c3
+
+99 01 5d                   ## : ] ;
+6a 01 8f 04 25 20 00 00 10 c3
+
+99 81 5c                   ## : \ ; IMMEDIATE
+48 8b 04                   
+25 00 00 00 10             
+48 89 04                   
+25 10 00 00 10             
+c3                         
+
+99 81 28                   ## : ( ; IMMEDIATE
+b1 29                      # mov $0x29, %cl  # ')'
+b2 2a                      # mov $0x2a, %dl  # '\n'
+99 50                      # Call PARSE
+c3                         # retn
+
+99 01 3a                   ## : : ... ;
+99 70 48 89 ee ba 28 00 00 10 99 48 48 8b 0a 48
+83 c1 10 80 09 40 99 5d c3
+
+99 81 3b                   ## : ; ... ; IMMEDIATE
+b0 c3 aa 48
+8b 0c 25 28 00 00 10 48 83 c1 10 80 21 bf 99 5b
+c3
+
+99 01 2e                   ## : . ;
+41 8a 07 49 83 c7 08 aa c3
+
+99 83 4c 49 54             ## : LIT ... ; IMMEDIATE
+b8 49 83 ef 08 ab b8 6a 41 8f 07 aa 41 8a
+07 ab 49 83 c7 08 c3
+
+99 03 78 74 3d             ## : xt= ... ;
+48 85 db 75
+01 c3 48 8b c8 48 8d 73 10 ac a8 40 74 01 c3 48
+83 e0 1f 48 39 c8 74 01 c3 48 8b fd f3 a6 c3
+
+99 04 46 49 4e 44          ## : FIND ... ;
+48 8b 1c 25 28 00 00 10 e8 03 00
+00 00 75 f9 c3 50 57 99 78 5f 58 74 04 48 8b 5b
+08 c3
+
+99 03 4e 75 6d             ## : Num ... ;
+49 83 ef 08 49 83 27 00 48
+89 c1 48 8b f5 e8 03 00 00 00 e2 f9 c3 ac 3c 41
+7c 02 2c 07 2c 30 49 c1 27 04 49 09 07 c3
+
+99 04 6d 69 73 73          ## : miss ... ;
+48 85 db 74 01 c3 48 85 c0 75 01 c3
+99 4e f6 04 25 20 00 00 10 01 75 01 c3 99 4c c3
+
+99 04 45 58 45 43          ## : EXEC ... ;
+b9 f8 ff ff 7f 57 89 cf 99 43
+b0 c3 aa 5f ff d1 c3
+
+99 04 65 78 65 63          ## : exec ... ;
+3c 01 75
+01 c3 99 45 c3
+
+99 05 63 6f 6d 70 6c       ## : compl ... ;
+3c 01 74 01
+c3 99 43 b0 01 c3
+
+99 03 68 69 74             ## : hit ... ;
+48 85 db 75 01
+c3 40 8a 43 10 24 80 0a 04 25 20 00 00 10 99 63
+99 65 c3
+
+99 04 53 56 41 4c          ## : SVAL ... ;
+e8 03 00 00 00 7c f9
+c3 99 70 99 46 99 6d 99 68 48 8b 04 25 10 00 00
+10 48 3b 04 25 00 00 00 10 c3
+
+99 02 74 69                ## : ti ... ;
+49 c7
+c7 00 00 00 10 49 89 77 08 99 5b e8 02 00 00 00
+eb f9 99 52 99 53 c3
+
+99 f4                      ## Call ti
+
+# #include "src.sys"
+# _fend:
