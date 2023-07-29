@@ -33,7 +33,7 @@
 
 ### Data Layout
 #
-# 10000000: #in
+# 10000000: #IN
 # 10000008: TIB
 # 10000010: >IN
 # 10000020: STATE
@@ -168,32 +168,65 @@ ba 80 00 00 00             # mov $0x00000080, %edx
 c3                         # retn
 
 99 06 52 45 46 49 4c 4c    ## : REFILL ... ;
-49 c7 c1 00 00 00 10
-49 8b 01 49 01
-41 08
-49 83 21 00
-49 83 61 10 00
-49 ff 01
-49 8b
-41 08
-49 03 01 80 78 ff 0a 75 f0
-c3
+                           ## / Set #IN and TIB to beginning of next line
+49 c7 c1 00 00 00 10       # mov $#IN, %r9
+49 8b 01                   # mov (%r9), %rax
+49 01 41 08                # add %rax, 0x08(%r9)
+49 83 21 00                # and %0x00, (%r9)     # #IN
+49 83 61 10 00             # and %0x00, 0x10(%r9) # >IN
+# _loop:
+49 ff 01                   # inc (%rcx)
+49 8b 41 08                # mov 0x08(%r9), %rax  # TIB
+49 03 01                   # add (%r9), %rax
+80 78 ff 0a                # cmp $0x0a, -1(%rax)  # '\n'
+75 f0                      # jnz _loop
+c3                         # retn
 
-99 04 73 65 65 6b          ## : seek ... ;
-49 c7 c1 00 00 00 10
-2a d1 49 8b 41 10 49
-3b 01 73 16 49 8b 41 08 49 03 41 10 8a 00 2a c1
-3a c2 72 06 49 ff 41 10 eb e1 c3
+99 04 73 65 65 6b          ## : seek ( cl dl -- eflags ) ... ;
+                           ## / >IN - beginning of next char in [cl, dl)
+49 c7 c1 00 00 00 10       # mov $#IN, %r9
+2a d1                      # sub %cl, %dl
+# _loop:
+49 8b 41 10                # mov 0x10(%r9), %rax  # >IN
+49 3b 01                   # cmp (%r9), %rax      # #IN
+73 16                      # jnb _retn
+49 8b 41 08                # mov 0x08(%r9), %rax  # TIB
+49 03 41 10                # add 0x10(%r9), %rax  # >IN
+8a 00                      # mov (%rax), %al
+2a c1                      # sub %cl, %al
+3a c2                      # cmp %dl, %al
+72 06                      # jb _retn
+49 ff 41 10                # inc 0x10(%r9)        # >IN
+eb e1                      # jmp _loop
+# _retn:
+c3                         # retn
 
-99 05 50 41 52 53 45       ## : PARSE ... ;
-49 c7 c1 00 00 00
-10 49 8b 69 10 99 73 49
-8b 41 10 73 04 49 ff 41 10 48 29 e8 49 03 69 08
-c3
+99 05 50 41 52 53 45       ## : PARSE ( cl dl -- rax rbp ) ... ;
+                           ## / Parse until character in [cl, dl).
+                           ## / rax - Length of parsed characters
+                           ## / rbp - Beginning of parsed characters
+49 c7 c1 00 00 00 10       # mov $#IN, %r9
+49 8b 69 10                # mov 0x10(%r9), %rbp  # >IN
+99 73                      # Call seek
+49 8b 41 10                # mov 0x10(%r9), %rax  # >IN
+73 04                      # jnb _end
+49 ff 41 10                # inc 0x10(%r9)        # >IN
+# _end:
+48 29 e8                   # sub %rbp, %rax
+49 03 69 08                # add 0x08(%r9), %rbp  # TIB
+c3                         # retn
 
-99 05 70 6e 61 6d 65       ## : pname ... ;
-b1 21 b2 7f 99 73 b1 7f
-b2 21 99 50 c3
+99 05 70 6e 61 6d 65       ## : pname ( -- rax rbp ) ... ;
+                           ## / Parse next word
+                           ## / rax - Length of word
+                           ## / rbp - Beginning of word
+b1 21                      # mov $0x21, %cl       # BL+1
+b2 7f                      # mov $0x7f, %dl       # DEL
+99 73                      # Call seek
+b1 7f                      # mov $0x7f, %cl       # DEL
+b2 21                      # mov $0x21, %dl       # BL+1
+99 50                      # Call PARSE
+c3                         # retn
 
 99 81 5b                   ## : [ ; IMMEDIATE
 6a 00 8f 04 25 20 00 00
