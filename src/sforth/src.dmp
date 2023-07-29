@@ -36,7 +36,7 @@
 # 10000000: #IN
 # 10000008: TIB
 # 10000010: >IN
-# 10000020: STATE
+# 10000020: STATE          # 0 = interpreting, 1 = compiling
 # 10000028: Latest
 # 10000030: Word0
 #
@@ -229,22 +229,27 @@ b2 21                      # mov $0x21, %dl       # BL+1
 c3                         # retn
 
 99 81 5b                   ## : [ ; IMMEDIATE
-6a 00 8f 04 25 20 00 00
-10 c3
+                           ## / Set STATE to interpreting
+6a 00                      # push $0x0
+8f 04 25 20 00 00 10       # pop (STATE)
+c3                         # retn
 
 99 01 5d                   ## : ] ;
-6a 01 8f 04 25 20 00 00 10 c3
+                           ## / Set STATE to compiling
+6a 01                      # push 0x01
+8f 04 25 20 00 00 10       # pop (STATE)
+c3                         # retn
 
 99 81 5c                   ## : \ ; IMMEDIATE
-48 8b 04                   
-25 00 00 00 10             
-48 89 04                   
-25 10 00 00 10             
-c3                         
+                           ## \ Skip until end of line
+48 8b 04 25 00 00 00 10    # mov (#IN), %rax
+48 89 04 25 10 00 00 10    # mov %rax, (>IN)
+c3                         # retn
 
 99 81 28                   ## : ( ; IMMEDIATE
+                           ## \ Consume input until next )
 b1 29                      # mov $0x29, %cl  # ')'
-b2 2a                      # mov $0x2a, %dl  # '\n'
+b2 2a                      # mov $0x2a, %dl  # ')'+1
 99 50                      # Call PARSE
 c3                         # retn
 
