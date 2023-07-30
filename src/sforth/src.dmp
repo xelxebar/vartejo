@@ -38,12 +38,12 @@
 # 10000010: >IN
 # 10000020: STATE          # 0 = interpreting, 1 = compiling
 # 10000028: Latest
-# 10000030: Word0
+# 10000030: End
 #
 
 # _entry:
-be b2 00 40 00             # mov $0x004000, %esi
-bf 30 00 00 10             # mov $Word0, %edi
+be b2 00 40 00             # mov __COMPL, %esi
+bf 30 00 00 10             # mov $End, %edi
 
 # _start:
 e8 02 00 00 00             # call _main
@@ -59,7 +59,7 @@ c3                         # retn
 # _command:
 ba 28 00 00 10             # mov $Latest, %edx
 ac                         # lodsb
-a8 60                      # test $0x60, %al  # [^[:cntrl:]]
+a8 60                      # test $0x60, %al      # [^[:cntrl:]]
 74 31                      # jz _Head
 48 8b 1a                   # mov (%rdx), %rbx
 
@@ -78,6 +78,7 @@ a8 80                      # test 0x80, %al
 ff 23                      # jmp (%rbx)
 
 
+# __COMPL:
 99 05 43 4f 4d 50 4c       ## : COMPL ... ;
                            ## \ Insert Subroutine Threaded call
                            ## \   mov "call (%rsb, %rsp)", (%rdi)
@@ -90,14 +91,17 @@ b0 25 aa                   # mov $0x25, %al; stosb
 ab                         # stosd
 c3                         # retn
 
-99 04 48 65 61 64          ## : Head ... ;
+99 04 48 65 61 64          ## : Head ( rdx eax -- ) ... ;
                            ## \ Setup new Dictionary Header entry
                            ## \   +0000: Code
                            ## \   +0008: Link
                            ## \   +0010: Flag (&0xe0) | Name Length (&0x1f)
-# _Head:                   ## \   +0011: Name
+                           ## \   +0011: Name
+                           ## \ rdx - Latest
+                           ## \ eax - Length
+# _Head:
 48 83 c7 0f                # add $0x0f, %rdi
-48 83 e7 f0                # sub $0xf0, %rdi
+48 83 e7 f0                # and $0xf0, %rdi
 48 8b 0a                   # mov (%rdx), %rcx
 48 89 4f 08                # mov %rcx, $0x08(%rdi)
 48 89 3a                   # mov %rdi, (%rdx)
@@ -254,8 +258,15 @@ b2 2a                      # mov $0x2a, %dl  # ')'+1
 c3                         # retn
 
 99 01 3a                   ## : : ... ;
-99 70 48 89 ee ba 28 00 00 10 99 48 48 8b 0a 48
-83 c1 10 80 09 40 99 5d c3
+99 70                      # Call pname
+48 89 ee                   # mov %rbp, %rsi
+ba 28 00 00 10             # mov $Latest, %edx
+99 48                      # Call Head
+48 8b 0a                   # mov (%rdx), %rcx
+48 83 c1 10                # add $0x10, %rcx      # Flag
+80 09 40                   # or $0x40, ($rcx)
+99 5d                      # Call ]
+c3                         # retn
 
 99 81 3b                   ## : ; ... ; IMMEDIATE
 b0 c3 aa 48
