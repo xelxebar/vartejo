@@ -299,15 +299,50 @@ ab                         # stosd
 49 83 c7 08                # add 0x08, %r15
 c3                         # retn
 
-99 03 78 74 3d             ## : xt= ;
-48 85 db 75
-01 c3 48 8b c8 48 8d 73 10 ac a8 40 74 01 c3 48
-83 e0 1f 48 39 c8 74 01 c3 48 8b fd f3 a6 c3
+99 03 78 74 3d             ## : xt= ( rax rbx rbp -- eflags ) ;
+                           ## \ Compare input string with word name
+                           ## \ rax - input string length
+                           ## \ rbx - input string
+                           ## \ rbp - dictionry word
+48 85 db                   # test %rbx, %rbx
+75 01                      # jnz _nonempty
+c3                         # retn
+# _nonempty:
+48 8b c8                   # mov %rax, %rcx
+48 8d 73 10                # lea 0x10(%rbx), %rsi # Flag/Length byte
+ac                         # lodsb
+a8 40                      # test $0x40, al       # Hidden flag
+74 01                      # jz _visible
+c3
+# _visible:
+48 83 e0 1f                # and $0x1f, %rax      # Name length
+48 39 c8                   # cmp %rcx, %rax
+74 01                      # jz _equilong
+c3                         # retn
+# _equilong:
+48 8b fd                   # mov %rbp, %rdi
+f3 a6                      # repe cmpsb
+c3                         # retn
 
-99 04 46 49 4e 44          ## : FIND ;
-48 8b 1c 25 28 00 00 10 e8 03 00
-00 00 75 f9 c3 50 57 99 78 5f 58 74 04 48 8b 5b
-08 c3
+99 04 46 49 4e 44          ## : FIND ( rax rbp -- ) ;
+                           ## \ Find dictionary word
+                           ## \ rax - length
+                           ## \ rbp - string
+48 8b 1c 25 28 00 00 10    # mov (Latest), %rbx
+# _loop:
+e8 03 00 00 00             # call _find
+75 f9                      # jnz _loop
+c3                         # retn
+# _find:
+50                         # push %rax
+57                         # push %rdi
+99 78                      # Call xt=
+5f                         # pop %rdi
+58                         # pop %rax
+74 04                      # jz _end
+48 8b 5b 08                # mov 0x08(%rbx), %rbx
+# _end:
+c3                         # retn
 
 99 03 4e 75 6d             ## : Num ( rax rbp -- r15 ) ;
                            ## \ Convert ascii hex to numeric value
