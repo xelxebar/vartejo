@@ -367,9 +367,25 @@ ac                         # lodsb
 49 09 07                   # or %rax, (%r15)
 c3                         # retn
 
-99 04 6d 69 73 73          ## : miss ;
-48 85 db 74 01 c3 48 85 c0 75 01 c3
-99 4e f6 04 25 20 00 00 10 01 75 01 c3 99 4c c3
+99 04 6d 69 73 73          ## : miss ( rax rbx -- ) ;
+                           ## \ Push value of hex to stack
+                           ## rax -- length of hex bytes
+                           ## rbx -- hex bytes
+48 85 db                   # test %rbx, %rbx
+74 01                      # jz _???
+c3                         # retn
+# _length:
+48 85 c0                   # test %rax, %rax
+75 01                      # jnz _???
+c3                         # retn
+# _num:
+99 4e                      # Call Num
+f6 04 25 20 00 00 10 01    # test $0x01, (STATE)
+75 01                      # jnz _???
+c3                         # retn
+# _lit:
+99 4c                      # Call LIT
+c3                         # retn
 
 99 04 45 58 45 43          ## : EXEC ;
 b9 f8 ff ff 7f 57 89 cf 99 43
