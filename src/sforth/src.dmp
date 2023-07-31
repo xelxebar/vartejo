@@ -79,10 +79,11 @@ ff 23                      # jmp (%rbx)
 
 
 # __COMPL:
-99 05 43 4f 4d 50 4c       ## : COMPL ;
+99 05 43 4f 4d 50 4c       ## : COMPL ( ebx -- ) ;
                            ## \ Insert Subroutine Threaded call
-                           ## \   mov "call (%rsb, %rsp)", (%rdi)
+                           ## \   mov "call (%eax)", (%rdi)
                            ## \   add $3, %rdi
+                           ## \ ebx - call target
 # _COMPL:
 b0 ff aa                   # mov $0xff, %al; stosb
 b0 14 aa                   # mov $0x14, %al; stosb
@@ -387,13 +388,27 @@ c3                         # retn
 99 4c                      # Call LIT
 c3                         # retn
 
-99 04 45 58 45 43          ## : EXEC ;
-b9 f8 ff ff 7f 57 89 cf 99 43
-b0 c3 aa 5f ff d1 c3
+99 04 45 58 45 43          ## : EXEC ( ecx ebx -- ) ;
+                           ## \ Insert subroutine call
+                           ## \ ecx - target location
+                           ## \ ebx - word
+b9 f8 ff ff 7f             # mov $0x7ffffff8, %ecx
+57                         # push %rdi
+89 cf                      # mov %ecx, %edi
+99 43                      # Call COMPL
+b0 c3                      # mov $0xc3, %al
+aa                         # stosb
+5f                         # pop %rdi
+ff d1                      # call %rcx
+c3                         # retn
 
 99 04 65 78 65 63          ## : exec ;
-3c 01 75
-01 c3 99 45 c3
+3c 01                      # cmp 0x01, %al
+75 01                      # jnz _exec
+c3                         # retn
+# _exec:
+99 45                      # Call EXEC
+c3                         # retn
 
 99 05 63 6f 6d 70 6c       ## : compl ;
 3c 01 74 01
