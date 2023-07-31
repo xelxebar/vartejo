@@ -287,8 +287,17 @@ aa                         # stosb
 c3                         # retn
 
 99 83 4c 49 54             ## : LIT ; IMMEDIATE
-b8 49 83 ef 08 ab b8 6a 41 8f 07 aa 41 8a
-07 ab 49 83 c7 08 c3
+                           ## \ Push instructions to put (%rsp) byte onto
+                           ## \ stack at runtime
+b8 49 83 ef 08             # mov 0x08ef8349, %eax  # sub $0x08, %r15
+ab                         # stosd
+b8 6a                      # mov 0x6a, %rax        # push _
+41 8f 07                   # pop (%r15)
+aa                         # stosb
+41 8a 07                   # mov (%r15), %al
+ab                         # stosd
+49 83 c7 08                # add 0x08, %r15
+c3                         # retn
 
 99 03 78 74 3d             ## : xt= ;
 48 85 db 75
