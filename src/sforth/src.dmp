@@ -309,10 +309,28 @@ c3                         # retn
 00 00 75 f9 c3 50 57 99 78 5f 58 74 04 48 8b 5b
 08 c3
 
-99 03 4e 75 6d             ## : Num ;
-49 83 ef 08 49 83 27 00 48
-89 c1 48 8b f5 e8 03 00 00 00 e2 f9 c3 ac 3c 41
-7c 02 2c 07 2c 30 49 c1 27 04 49 09 07 c3
+99 03 4e 75 6d             ## : Num ( rax rbp -- r15 ) ;
+                           ## \ Convert ascii hex to numeric value
+                           ## \ rax - byte count
+                           ## \ rbp - bytes
+49 83 ef 08                # sub 0x08, %r15
+49 83 27 00                # and 0x00, (%r15)
+48 89 c1                   # mov %rax, %rcx
+48 8b f5                   # mov %rbp, %rsi
+# _loop:
+e8 03 00 00 00             # call _digit
+e2 f9                      # loop _loop
+c3                         # retn
+# _digit:
+ac                         # lodsb
+3c 41                      # cmp 0x41, %al        # 'A'
+7c 02                      # jl _append
+2c 07                      # sub $0x07, %al       # 'A'-'9'+1
+# _append:
+2c 30                      # sub $0x30, %al       # '0'
+49 c1 27 04                # sal $0x04, (%r15)
+49 09 07                   # or %rax, (%r15)
+c3                         # retn
 
 99 04 6d 69 73 73          ## : miss ;
 48 85 db 74 01 c3 48 85 c0 75 01 c3
