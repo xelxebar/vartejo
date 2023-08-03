@@ -9,12 +9,12 @@
 02 00                      # e_type              = ET_EXEC
       3e 00                # e_machine           = EM_X86_64
             01 00 00 00    # e_version           = EV_CURRENT
-78 00 40 00 00 00 00 00    # e_entry             = _entry
+78 00 40 00 00 00 00 00    # e_entry             = _start
 40 00 00 00 00 00 00 00    # e_phoff             = Elf_Phdr
 00 00 00 00 00 00 00 00    # e_shoff
 00 00 00 00                # e_flags
             40 00          # e_ehsize            = Elf64_Phdr - Elf64_Ehdr
-                  38 00    # e_phentsize         = _entry - Elf64_Phdr
+                  38 00    # e_phentsize         = _start - Elf64_Phdr
 01 00                      # e_phnum
       40 00                # e_shentsize
             00 00          # e_shnum
@@ -26,71 +26,73 @@
 00 00 00 00 00 00 00 00    # p_offset            = Elf64_Ehdr
 00 00 40 00 00 00 00 00    # p_vaddr             = 2*HPAGE_SIZE
 00 00 00 00 00 00 00 00    # p_paddr             = (unused)
-02 1e 01 00 00 00 00 00    # p_filesz            = _fend - Elf64_Ehdr
+02 1e 01 00 00 00 00 00    # p_filesz            = fend - Elf64_Ehdr
 00 00 c0 7f 00 00 00 00    # p_memsz
 00 10 00 00 00 00 00 00    # p_align
 
 
-### Data Layout
-#
-# 10000000: #IN
-# 10000008: TIB
-# 10000010: >IN
-# 10000020: STATE          # 0 = interpreting, 1 = compiling
-# 10000028: Latest
-# 10000030: End
-#
+### Code
 
-# _entry:
-be b2 00 40 00             # mov __COMPL, %esi
-bf 30 00 00 10             # mov $End, %edi
+# .set hIN,    0x10000000;
+# .set TIB,    0x10000008;
+# .set gIN,    0x10000010;
+# .set STATE,  0x10000020;
+# .set Latest, 0x10000028;
+# .set DATA,   0x10000030;
+# .set EDATA,  0x7ffffff8;
 
+# .section .forth, "awx"
+# .globl _start
 # _start:
-e8 02 00 00 00             # call _main
-eb f9                      # jmp _start
+be b2 00 40 00             # movl $DICT, %esi
+bf 30 00 00 10             # movl $DATA, %edi
 
-# _main:
+# start_loop:
+e8 02 00 00 00             # call start_main
+eb f9                      # jmp start_loop
+
+# start_main:
 ac                         # lodsb
-3c 99                      # cmp $0x99, %al
-74 02                      # je _command
+3c 99                      # cmpb $0x99, %al
+74 02                      # je start_command
 aa                         # stosb
-c3                         # retn
+c3                         # ret
 
-# _command:
-ba 28 00 00 10             # mov $Latest, %edx
+# start_command:
+ba 28 00 00 10             # movl $Latest, %edx
 ac                         # lodsb
-a8 60                      # test $0x60, %al      # [^[:cntrl:]]
-74 31                      # jz _Head
-48 8b 1a                   # mov (%rdx), %rbx
+a8 60                      # testb $0x60, %al      # [^[:cntrl:]]
+74 31                      # jz Head
+48 8b 1a                   # movq (%rdx), %rbx
 
-# _find:
-50                         # push %rax
-24 7f                      # and $0x7f, %al
-3a 43 11                   # cmp 0x11(%rbx), %al
-58                         # pop %rax
-74 06                      # je _match
-48 8b 5b 08                # mov 0x08(%rbx), %rbx
-eb f1                      # jmp _find
+# start_find:
+50                         # pushq %rax
+24 7f                      # andb $0x7f, %al
+3a 43 11                   # cmpb 0x11(%rbx), %al
+58                         # popq %rax
+74 06                      # je start_match
+48 8b 5b 08                # movq 0x08(%rbx), %rbx
+eb f1                      # jmp start_find
 
-# _match:
-a8 80                      # test 0x80, %al
-74 09                      # jz _COMPL
-ff 23                      # jmp (%rbx)
+# start_match:
+a8 80                      # testb $0x80, %al
+74 09                      # jz COMPL
+ff 23                      # jmp *(%rbx)
 
 
-# __COMPL:
+# DICT:
 99 05 43 4f 4d 50 4c       ## : COMPL ( ebx -- ) ;
                            ## \ Insert Subroutine Threaded call
                            ## \   mov "call (%ebx)", (%rdi)
                            ## \   add $3, %rdi
                            ## \ ebx - call target
-# _COMPL:
-b0 ff aa                   # mov $0xff, %al; stosb
-b0 14 aa                   # mov $0x14, %al; stosb
-b0 25 aa                   # mov $0x25, %al; stosb
-93                         # xchg %eax, %ebx
-ab                         # stosd
-c3                         # retn
+# COMPL:
+b0 ff aa                   # movb $0xff, %al; stosb
+b0 14 aa                   # movb $0x14, %al; stosb
+b0 25 aa                   # movb $0x25, %al; stosb
+93                         # xchgl %eax, %ebx
+ab                         # stosl
+c3                         # ret
 
 99 04 48 65 61 64          ## : Head ( rdx eax -- ) ;
                            ## \ Setup new Dictionary Header entry
@@ -100,369 +102,373 @@ c3                         # retn
                            ## \   +0011: Name
                            ## \ rdx - Latest
                            ## \ eax - Length
-# _Head:
-48 83 c7 0f                # add $0x0f, %rdi
-48 83 e7 f0                # and $0xf0, %rdi
-48 8b 0a                   # mov (%rdx), %rcx
-48 89 4f 08                # mov %rcx, $0x08(%rdi)
-48 89 3a                   # mov %rdi, (%rdx)
-48 83 c7 10                # add $0x10, %rdi
+# Head:
+48 83 c7 0f                # addq $0x0f, %rdi
+48 83 e7 f0                # and $~0x0f, %rdi
+48 8b 0a                   # movq (%rdx), %rcx
+48 89 4f 08                # movq %rcx, 0x08(%rdi)
+48 89 3a                   # movq %rdi, (%rdx)
+48 83 c7 10                # addq $0x10, %rdi
 aa                         # stosb
-91                         # xchg %eax, %ecx
-83 e1 1f                   # and $0x1f, %ecx
+91                         # xchgl %eax, %ecx
+83 e1 1f                   # andl $0x1f, %ecx
 f3 a4                      # rep movsb
-48 8b 0a                   # mov (%rdx), %rcx
-48 89 39                   # mov %rdi, (%rcx)
-c3                         # retn
+48 8b 0a                   # movq (%rdx), %rcx
+48 89 39                   # movq %rdi, (%rcx)
+c3                         # ret
 
-99 03 42 59 45             ## : bye ;
-6a 3c                      # push $0x3c  # exit(2)
-58                         # pop %eax
-31 ff                      # xor %rdi, %rdi
+99 03 42 59 45             ## : BYE ;
+6a 3c                      # pushq $0x3c              # exit(2)
+58                         # popq %rax
+31 ff                      # xorl %edi, %edi
 0f 05                      # syscall
 
 99 04 54 59 50 45          ## : TYPE ;
-6a 01                      # push $0x01
-5f                         # pop %rdi
-# _loop:
-8b c7                      # mov %edi, %eax  # write(2)
+6a 01                      # pushq $0x01              # write(2)
+5f                         # popq %rdi
+# TYPE_loop:
+8b c7                      # {load} movl %edi, %eax
 0f 05                      # syscall
-48 85 c0                   # test %rax, %rax
-7c 08                      # jl _retn
-48 01 c6                   # add %rax, %rsi
-48 29 c2                   # sub %rax, %rdx
-7f ef                      # jg _loop
-# _retn:
-c3                         # retn
+48 85 c0                   # testq %rax, %rax
+7c 08                      # jl TYPE_ret
+48 01 c6                   # addq %rax, %rsi
+48 29 c2                   # subq %rax, %rdx
+7f ef                      # jg TYPE_loop
+# TYPE_ret:
+c3                         # ret
 
 99 03 64 62 67             ## : dbg ;
-56                         # push %rsi
-57                         # push %rdi
-be e0 ff ff 0f             # mov $0x0fffffe0, %esi
-ba 00 0a 00 00             # mov $0x00000a00, %edx
+56                         # pushq %rsi
+57                         # pushq %rdi
+be e0 ff ff 0f             # movl $0x0fffffe0, %esi
+ba 00 0a 00 00             # movl $0x00000a00, %edx
 99 54                      # Call TYPE
-5f                         # pop %rdi
-5e                         # pop %rsi
-c3                         # retn
+5f                         # popq %rdi
+5e                         # popq %rsi
+c3                         # ret
 
 99 03 72 65 67             ## : reg ;
-56                         # push %rsi
-57                         # push %rdi
-41 57                      # push %r15
-57                         # push %rdi
-41 56                      # push %r14
-56                         # push %rsi
-41 55                      # push %r13
-55                         # push %rbp
-41 54                      # push %r12
-54                         # push %rsp
-41 53                      # push %r11
-53                         # push %rbx
-41 52                      # push %r10
-52                         # push %rdx
-41 51                      # push %r9
-51                         # push %rcx
-41 50                      # push %r8
-50                         # push %rax
-48 8b f4                   # mov %rsp, %rsi
-ba 80 00 00 00             # mov $0x00000080, %edx
+56                         # pushq %rsi
+57                         # pushq %rdi
+41 57                      # pushq %r15
+57                         # pushq %rdi
+41 56                      # pushq %r14
+56                         # pushq %rsi
+41 55                      # pushq %r13
+55                         # pushq %rbp
+41 54                      # pushq %r12
+54                         # pushq %rsp
+41 53                      # pushq %r11
+53                         # pushq %rbx
+41 52                      # pushq %r10
+52                         # pushq %rdx
+41 51                      # pushq %r9
+51                         # pushq %rcx
+41 50                      # pushq %r8
+50                         # pushq %rax
+48 8b f4                   # {load} movq %rsp, %rsi
+ba 80 00 00 00             # movl $0x00000080, %edx
 99 54                      # Call TYPE
-48 83 ec 80                # sub $0x80, %rsp
-5f                         # pop %rdi
-5e                         # pop %rsi
-c3                         # retn
+48 83 ec 80                # subq $~0x7f, %rsp
+5f                         # popq %rdi
+5e                         # popq %rsi
+c3                         # ret
 
 99 06 52 45 46 49 4c 4c    ## : REFILL ( -- rax ) ;
                            ## \ Set #IN and TIB to beginning of next line
                            ## \ rax - new TIB
-49 c7 c1 00 00 00 10       # mov $#IN, %r9
-49 8b 01                   # mov (%r9), %rax
-49 01 41 08                # add %rax, 0x08(%r9)
-49 83 21 00                # and %0x00, (%r9)     # #IN
-49 83 61 10 00             # and %0x00, 0x10(%r9) # >IN
-# _loop:
-49 ff 01                   # inc (%r9)
-49 8b 41 08                # mov 0x08(%r9), %rax  # TIB
-49 03 01                   # add (%r9), %rax
-80 78 ff 0a                # cmp $0x0a, -1(%rax)  # '\n'
-75 f0                      # jnz _loop
-c3                         # retn
+49 c7 c1 00 00 00 10       # movq $hIN, %r9
+49 8b 01                   # movq (%r9), %rax
+49 01 41 08                # addq %rax, 0x08(%r9)
+49 83 21 00                # andq $0x00, (%r9)         # #IN
+49 83 61 10 00             # andq $0x00, 0x10(%r9)     # >IN
+# REFILL_loop:
+49 ff 01                   # incq (%r9)
+49 8b 41 08                # movq 0x08(%r9), %rax     # TIB
+49 03 01                   # addq (%r9), %rax
+80 78 ff 0a                # cmpb $0x0a, -1(%rax)     # '\n'
+75 f0                      # jnz REFILL_loop
+c3                         # ret
 
 99 04 73 65 65 6b          ## : seek ( cl dl -- eflags ) ;
                            ## / >IN - beginning of next char in [cl, dl)
-49 c7 c1 00 00 00 10       # mov $#IN, %r9
-2a d1                      # sub %cl, %dl
-# _loop:
-49 8b 41 10                # mov 0x10(%r9), %rax  # >IN
-49 3b 01                   # cmp (%r9), %rax      # #IN
-73 16                      # jnb _retn
-49 8b 41 08                # mov 0x08(%r9), %rax  # TIB
-49 03 41 10                # add 0x10(%r9), %rax  # >IN
-8a 00                      # mov (%rax), %al
-2a c1                      # sub %cl, %al
-3a c2                      # cmp %dl, %al
-72 06                      # jb _retn
-49 ff 41 10                # inc 0x10(%r9)        # >IN
-eb e1                      # jmp _loop
-# _retn:
-c3                         # retn
+49 c7 c1 00 00 00 10       # movq $hIN, %r9
+2a d1                      # {load} subb %cl, %dl
+# seek_loop:
+49 8b 41 10                # movq 0x10(%r9), %rax     # >IN
+49 3b 01                   # cmpq (%r9), %rax         # #IN
+73 16                      # jnb seek_ret
+49 8b 41 08                # movq 0x08(%r9), %rax     # TIB
+49 03 41 10                # addq 0x10(%r9), %rax     # >IN
+8a 00                      # movb (%rax), %al
+2a c1                      # {load} subb %cl, %al
+3a c2                      # {load} cmpb %dl, %al
+72 06                      # jb seek_ret
+49 ff 41 10                # incq 0x10(%r9)           # >IN
+eb e1                      # jmp seek_loop
+# seek_ret:
+c3                         # ret
 
 99 05 50 41 52 53 45       ## : PARSE ( cl dl -- rax rbp ) ;
                            ## / Parse until character in [cl, dl).
                            ## / rax - Length of parsed characters
                            ## / rbp - Beginning of parsed characters
-49 c7 c1 00 00 00 10       # mov $#IN, %r9
-49 8b 69 10                # mov 0x10(%r9), %rbp  # >IN
+49 c7 c1 00 00 00 10       # movq $hIN, %r9
+49 8b 69 10                # movq 0x10(%r9), %rbp     # >IN
 99 73                      # Call seek
-49 8b 41 10                # mov 0x10(%r9), %rax  # >IN
-73 04                      # jnb _end
-49 ff 41 10                # inc 0x10(%r9)        # >IN
-# _end:
-48 29 e8                   # sub %rbp, %rax
-49 03 69 08                # add 0x08(%r9), %rbp  # TIB
-c3                         # retn
+49 8b 41 10                # movq 0x10(%r9), %rax     # >IN
+73 04                      # jnb PARSE_end
+49 ff 41 10                # incq 0x10(%r9)           # >IN
+# PARSE_end:
+48 29 e8                   # subq %rbp, %rax
+49 03 69 08                # addq 0x08(%r9), %rbp     # TIB
+c3                         # ret
 
 99 05 70 6e 61 6d 65       ## : pname ( -- rax rbp ) ;
                            ## / Parse next word
                            ## / rax - Length of name
                            ## / rbp - name
-b1 21                      # mov $0x21, %cl       # BL+1
-b2 7f                      # mov $0x7f, %dl       # DEL
+b1 21                      # movb $0x21, %cl          # BL+1
+b2 7f                      # movb $0x7f, %dl          # DEL
 99 73                      # Call seek
-b1 7f                      # mov $0x7f, %cl       # DEL
-b2 21                      # mov $0x21, %dl       # BL+1
+b1 7f                      # movb $0x7f, %cl          # DEL
+b2 21                      # movb $0x21, %dl          # BL+1
 99 50                      # Call PARSE
-c3                         # retn
+c3                         # ret
 
 99 81 5b                   ## : [ ; IMMEDIATE
                            ## / Set STATE to interpreting
-6a 00                      # push $0x0
-8f 04 25 20 00 00 10       # pop (STATE)
-c3                         # retn
+6a 00                      # pushq $0x0
+8f 04 25 20 00 00 10       # popq (STATE)
+c3                         # ret
 
 99 01 5d                   ## : ] ;
                            ## / Set STATE to compiling
-6a 01                      # push 0x01
-8f 04 25 20 00 00 10       # pop (STATE)
-c3                         # retn
+6a 01                      # pushq $0x01
+8f 04 25 20 00 00 10       # popq (STATE)
+c3                         # ret
 
 99 81 5c                   ## : \ ; IMMEDIATE
                            ## \ Skip until end of line
-48 8b 04 25 00 00 00 10    # mov (#IN), %rax
-48 89 04 25 10 00 00 10    # mov %rax, (>IN)
-c3                         # retn
+48 8b 04 25 00 00 00 10    # movq (hIN), %rax
+48 89 04 25 10 00 00 10    # movq %rax, (gIN)
+c3                         # ret
 
 99 81 28                   ## : ( ; IMMEDIATE
                            ## \ Consume input until next )
-b1 29                      # mov $0x29, %cl  # ')'
-b2 2a                      # mov $0x2a, %dl  # ')'+1
+b1 29                      # movb $0x29, %cl  # ')'
+b2 2a                      # movb $0x2a, %dl  # ')'+1
 99 50                      # Call PARSE
-c3                         # retn
+c3                         # ret
 
 99 01 3a                   ## : : ;
                            ## \ Define new word
 99 70                      # Call pname
-48 89 ee                   # mov %rbp, %rsi
-ba 28 00 00 10             # mov $Latest, %edx
+48 89 ee                   # movq %rbp, %rsi
+ba 28 00 00 10             # movl $Latest, %edx
 99 48                      # Call Head
-48 8b 0a                   # mov (%rdx), %rcx
-48 83 c1 10                # add $0x10, %rcx
-80 09 40                   # or $0x40, ($rcx)     # Hidden flag
+48 8b 0a                   # movq (%rdx), %rcx
+48 83 c1 10                # addq $0x10, %rcx
+80 09 40                   # orb $0x40, (%rcx)        # Hidden flag
 99 5d                      # Call ]
-c3                         # retn
+c3                         # ret
 
 99 81 3b                   ## : ; ; IMMEDIATE
                            ## \ End word definition
-b0 c3                      # mov $0xc3, %al       # retn
+b0 c3                      # mov $0xc3, %al           # ret
 aa                         # stosb
-48 8b 0c 25 28 00 00 10    # mov (Latest), %rcx
-48 83 c1 10                # add $0x10, %rcx
-80 21 bf                   # and $0xbf, (%rcx)    # Hidden flag
+48 8b 0c 25 28 00 00 10    # movq (Latest), %rcx
+48 83 c1 10                # addq $0x10, %rcx
+80 21 bf                   # andb $0xbf, (%rcx)       # Hidden flag
 99 5b                      # Call [
-c3                         # retn
+c3                         # ret
 
 99 01 2e                   ## : . ;
                            ## \ Copy byte from stack into data
-41 8a 07                   # mov (%r15), %al
-49 83 c7 08                # add $0x08, %r15
+41 8a 07                   # movb (%r15), %al
+49 83 c7 08                # addq $0x08, %r15
 aa                         # stosb
-c3                         # retn
+c3                         # ret
 
 99 83 4c 49 54             ## : LIT ; IMMEDIATE
                            ## \ Push instructions to put (%rsp) byte onto
                            ## \ stack at runtime
-b8 49 83 ef 08             # mov 0x08ef8349, %eax  # sub $0x08, %r15
-ab                         # stosd
-b8 6a                      # mov 0x6a, %rax        # push _
-41 8f 07                   # pop (%r15)
+b8 49 83 ef 08             # movl $0x08ef8349, %eax   # subb $0x08, %r15
+ab                         # stosl
+b8 6a 41 8f 07             # movl $0x078f416a, %eax   # pushq $0x41
+                           #                          # popq (%rdi)
 aa                         # stosb
-41 8a 07                   # mov (%r15), %al
-ab                         # stosd
-49 83 c7 08                # add 0x08, %r15
-c3                         # retn
+41 8a 07                   # movb (%r15), %al
+ab                         # stosl
+49 83 c7 08                # addq $0x08, %r15
+c3                         # ret
 
 99 03 78 74 3d             ## : xt= ( rax rbx rbp -- eflags ) ;
                            ## \ Compare input string with word name
                            ## \ rax - input string length
                            ## \ rbx - input string
                            ## \ rbp - dictionry word
-48 85 db                   # test %rbx, %rbx
-75 01                      # jnz _nonempty
-c3                         # retn
-# _nonempty:
-48 8b c8                   # mov %rax, %rcx
-48 8d 73 10                # lea 0x10(%rbx), %rsi # Flag/Length byte
+48 85 db                   # testq %rbx, %rbx
+75 01                      # jnz xte_nonempty
+c3                         # ret
+# xte_nonempty:
+48 8b c8                   # {load} movq %rax, %rcx
+48 8d 73 10                # leaq 0x10(%rbx), %rsi    # Flag/Length byte
 ac                         # lodsb
-a8 40                      # test $0x40, al       # Hidden flag
-74 01                      # jz _visible
-c3
-# _visible:
-48 83 e0 1f                # and $0x1f, %rax      # Name length
-48 39 c8                   # cmp %rcx, %rax
-74 01                      # jz _equilong
-c3                         # retn
-# _equilong:
-48 8b fd                   # mov %rbp, %rdi
+a8 40                      # testb $0x40, %al         # Hidden flag
+74 01                      # jz xte_visible
+c3                         # ret
+# xte_visible:
+48 83 e0 1f                # andq $0x1f, %rax         # Name length
+48 39 c8                   # cmpq %rcx, %rax
+74 01                      # jz xte_equilong
+c3                         # ret
+# xte_equilong:
+48 8b fd                   # {load} mov %rbp, %rdi
 f3 a6                      # repe cmpsb
-c3                         # retn
+c3                         # ret
 
 99 04 46 49 4e 44          ## : FIND ( rax rbp -- rbx ) ;
                            ## \ Find dictionary word
                            ## \ rax - length
                            ## \ rbp - string
                            ## \ rbx - matched word
-48 8b 1c 25 28 00 00 10    # mov (Latest), %rbx
-# _loop:
-e8 03 00 00 00             # call _find
-75 f9                      # jnz _loop
-c3                         # retn
-# _find:
-50                         # push %rax
-57                         # push %rdi
+48 8b 1c 25 28 00 00 10    # movq (Latest), %rbx
+# FIND_loop:
+e8 03 00 00 00             # call FIND_main
+75 f9                      # jnz FIND_loop
+c3                         # ret
+# FIND_main:
+50                         # pushq %rax
+57                         # pushq %rdi
 99 78                      # Call xt=
-5f                         # pop %rdi
-58                         # pop %rax
-74 04                      # jz _end
-48 8b 5b 08                # mov 0x08(%rbx), %rbx
-# _end:
-c3                         # retn
+5f                         # popq %rdi
+58                         # popq %rax
+74 04                      # jz FIND_end
+48 8b 5b 08                # movq 0x08(%rbx), %rbx
+# FIND_end:
+c3                         # ret
 
 99 03 4e 75 6d             ## : Num ( rax rbp -- r15 ) ;
                            ## \ Convert ascii hex to numeric value
                            ## \ rax - byte count
                            ## \ rbp - bytes
-49 83 ef 08                # sub 0x08, %r15
-49 83 27 00                # and 0x00, (%r15)
-48 89 c1                   # mov %rax, %rcx
-48 8b f5                   # mov %rbp, %rsi
-# _loop:
-e8 03 00 00 00             # call _digit
-e2 f9                      # loop _loop
-c3                         # retn
-# _digit:
+49 83 ef 08                # subq $0x08, %r15
+49 83 27 00                # andq $0x00, (%r15)
+48 89 c1                   # movq %rax, %rcx
+48 8b f5                   # {load} movq %rbp, %rsi
+# Num_loop:
+e8 03 00 00 00             # call Num_digit
+e2 f9                      # loop Num_loop
+c3                         # ret
+# Num_digit:
 ac                         # lodsb
-3c 41                      # cmp 0x41, %al        # 'A'
-7c 02                      # jl _append
-2c 07                      # sub $0x07, %al       # 'A'-'9'+1
-# _append:
-2c 30                      # sub $0x30, %al       # '0'
-49 c1 27 04                # sal $0x04, (%r15)
-49 09 07                   # or %rax, (%r15)
-c3                         # retn
+3c 41                      # cmpb $0x41, %al           # 'A'
+7c 02                      # jl Num_append
+2c 07                      # subb $0x07, %al          # 'A'-'9'+1
+# Num_append:
+2c 30                      # subb $0x30, %al          # '0'
+49 c1 27 04                # salq $0x04, (%r15)
+49 09 07                   # orq %rax, (%r15)
+c3                         # ret
 
 99 04 6d 69 73 73          ## : miss ( rax rbx -- eflags ) ;
                            ## \ Push value of hex to stack
                            ## rax -- length of hex bytes
                            ## rbx -- hex bytes
-48 85 db                   # test %rbx, %rbx
-74 01                      # jz _length
-c3                         # retn
-# _length:
+48 85 db                   # testq %rbx, %rbx
+74 01                      # jz miss_length
+c3                         # ret
+# miss_length:
 48 85 c0                   # test %rax, %rax
-75 01                      # jnz _num
-c3                         # retn
-# _num:
+75 01                      # jnz miss_num
+c3                         # ret
+# miss_num:
 99 4e                      # Call Num
-f6 04 25 20 00 00 10 01    # test $0x01, (STATE)
-75 01                      # jnz _lit
-c3                         # retn
-# _lit:
+f6 04 25 20 00 00 10 01    # testb $0x01, (STATE)
+75 01                      # jnz miss_lit
+c3                         # ret
+# miss_lit:
 99 4c                      # Call LIT
-c3                         # retn
+c3                         # ret
 
 99 04 45 58 45 43          ## : EXEC ( ebx -- ) ;
                            ## \ Insert subroutine call
                            ## \ ebx - word
-b9 f8 ff ff 7f             # mov $0x7ffffff8, %ecx
-57                         # push %rdi
-89 cf                      # mov %ecx, %edi
+b9 f8 ff ff 7f             # movl $EDATA, %ecx
+57                         # pushq %rdi
+89 cf                      # movl %ecx, %edi
 99 43                      # Call COMPL
-b0 c3                      # mov $0xc3, %al       # retn
+b0 c3                      # movb $0xc3, %al          # ret
 aa                         # stosb
-5f                         # pop %rdi
-ff d1                      # call %rcx
-c3                         # retn
+5f                         # popq %rdi
+ff d1                      # call *%rcx
+c3                         # ret
 
 99 04 65 78 65 63          ## : exec ;
-3c 01                      # cmp 0x01, %al
-75 01                      # jne _exec
-c3                         # retn
-# _exec:
+3c 01                      # cmp $0x01, %al
+75 01                      # jne exec_EXEC
+c3                         # ret
+# exec_EXEC:
 99 45                      # Call EXEC
-c3                         # retn
+c3                         # ret
 
 99 05 63 6f 6d 70 6c       ## : compl ;
 3c 01                      # cmp $0x01, %al
-74 01                      # je _compl
-c3                         # retn
-# _compl:
+74 01                      # je compl_COMPL
+c3                         # ret
+# compl_COMPL:
 99 43                      # Call COMPL
-b0 01                      # mov $0x01, %al
-c3                         # retn
+b0 01                      # movb $0x01, %al
+c3                         # ret
 
 99 03 68 69 74             ## : hit ( rbx -- ) ;
                            ## \ Compile or exec word depending on STATE
                            ## rbx - target word
-48 85 db                   # test %rbx, %rbx
-75 01                      # jnz _hit
-c3                         # retn
-# _hit:
-40 8a 43 10                # mov 0x10(%rbx), %al  # Flag/Name byte
-24 80                      # and $0x80, %al       # IMMEDIATE flag
-0a 04 25 20 00 00 10       # or STATE, %al
+48 85 db                   # testq %rbx, %rbx
+75 01                      # jnz hit_nonnull
+c3                         # ret
+# hit_nonnull:
+40 8a 43 10                # .byte 0x40               # REX.0 prefix
+                           # movb 0x10(%rbx), %al     # Flag/Name byte
+24 80                      # andb $0x80, %al          # IMMEDIATE flag
+0a 04 25 20 00 00 10       # orb STATE, %al
 99 63                      # Call compl
 99 65                      # Call exec
-c3                         # retn
+c3                         # ret
 
 99 04 53 56 41 4c          ## : SVAL ;
                            ## \ Run words in current buffer
-# _loop:
-e8 03 00 00 00             # call _sval
-7c f9                      # jl _loop
-c3                         # retn
-# _sval:
+# SVAL_loop:
+e8 03 00 00 00             # call SVAL_main
+7c f9                      # jl SVAL_loop
+c3                         # ret
+# SVAL_main:
 99 70                      # Call pname
 99 46                      # Call FIND
 99 6d                      # Call miss
 99 68                      # Call hit
-48 8b 04 25 10 00 00 10    # mov >IN, %rax
-48 3b 04 25 00 00 00 10    # cmp #IN, %rax
+48 8b 04 25 10 00 00 10    # movq gIN, %rax
+48 3b 04 25 00 00 00 10    # cmpq hIN, %rax
 c3                         # ret
 
 99 02 74 69                ## : ti ;
                            ## \ Run text input
-49 c7 c7 00 00 00 10       # mov $#IN, %r15
-49 89 77 08                # mov %rsi, 0x08(%15)  # TIB
+49 c7 c7 00 00 00 10       # movq $hIN, %r15
+49 89 77 08                # movq %rsi, 0x08(%r15)    # TIB
 99 5b                      # Call [
-# _loop:
-e8 02 00 00 00             # call _ti
-eb f9                      # jmp _loop
-# _ti:
+# ti_loop:
+e8 02 00 00 00             # call ti_main
+eb f9                      # jmp ti_loop
+# ti_main:
 99 52                      # Call REFILL
 99 53                      # Call SVAL
-c3                         # retn
+c3                         # ret
 
 99 f4                      ## Call ti
 
-# #include "src.sys"
-# _fend:
+# .incbin "src.sys"
+# .section .dict, "awx", @nobits
+# .org (EDATA + 0x8 - .)
+
+# fend:
